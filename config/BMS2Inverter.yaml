@@ -1,0 +1,13 @@
+BMS:
+  port: can0
+  portrate: 250000
+inverter:
+  port: can1
+  portrate: 500000
+cellbalancing:
+  interval-days: 1
+  hold-soc: 99
+  minutes: 35
+logging:
+  loglevel: info
+  logfile: /home/ryanpulley/Project/DiscoverBMS/log/BMS2Inverter.log

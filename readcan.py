@@ -1,0 +1,910 @@
+#!
+
+'''
+Service: DiscoverBMS.py
+
+Purpose:
+    1) Listens to the Discover Serial CAN protocol 
+    2) Transforms data into object model
+    3) Outputs to MQTT protocol on topics
+
+Feature Details:
+'''
+
+import can
+import argparse
+import paho.mqtt.client as mqtt
+import struct
+from enum import Enum
+import logging
+import threading
+from time import sleep
+import json
+#import sys
+import yaml
+
+'''
+--------------------------------------
+BMS Classes
+--------------------------------------
+'''
+
+'''
+BMS Battery Limits (0x351)
+Transmission Rate: 1000ms
+
+Example: 
+  can0  351   [8]  2F 02 04 0B 04 0B B0 01
+  
+  Bytes Value   Dec Value   Converted Value     Description   
+  0-1   022F    559         55.9v               Requested Charge Voltage
+  2-3   0B04    2820        28.2a               Requested Charge Current
+  4-5   0B04    2820        28.2a               Requested Maximum Discharge Current
+  6-7   01B0    432         43.2v               Low Battery Cut Out Voltage
+'''
+class BMSDiscoverSCBatteryLimits ():
+   initialized = False;
+   requestedChargeVoltage = 0.0;
+   requestedChargeCurrent = 0.0;
+   requestedMaximumDischargeCurrent = 0.0;
+   lowBatteryCutOutVoltage = 0.0;
+
+   def decode(self, buffer):
+      # Unpack 8 bytes (little endian)      
+      unpackedBuffer = struct.unpack("<HHHH", buffer) 
+
+      self.requestedChargeVoltage = unpackedBuffer[0]/10
+      self.requestedChargeCurrent = unpackedBuffer[1]/10
+      self.requestedMaximumDischargeCurrent = unpackedBuffer[2]/10
+      self.lowBatteryCutOutVoltage = unpackedBuffer[3]/10
+      self.initialized = True;
+
+'''
+BMS Battery Capacity Information (0x354)
+Transmission Rate: 1000ms
+
+Example: 
+  can0  354   [8]  2C 01 E7 00 00 00 00 00
+  
+  Bytes Value   Dec Value   Converted Value     Description   
+  0-1   012C    300         300ah               Battery Nominal Capacity
+  2-3   00E7    231         231ah               Battery Remaining Capacity
+  4-7   0000    0           0                   Reserved
+'''
+class BMSDiscoverSCBatteryCapacity ():
+   initialized = False;
+   batteryNominalCapacity = 0;
+   batteryRemainingCapacity = 0;
+
+   def decode(self, buffer):
+      # Unpack 8 bytes (little endian)      
+      unpackedBuffer = struct.unpack("<HHHH", buffer) 
+
+      self.batteryNominalCapacity = unpackedBuffer[0]
+      self.batteryRemainingCapacity = unpackedBuffer[1]
+      self.initialized = True;
+      
+'''
+BMS Battery Status (0x355)
+Transmission Rate: 1000ms
+
+Example: 
+  can0  355   [8]  4D 00 64 00 00 00 00 00
+  
+  Bytes Value   Dec Value   Converted Value     Description   
+  0-1   004D    77          77%                 Battery State of Charge
+  2-3   0064    100         100%                Battery State of Health
+  4-7   0000    0           0                   Reserved
+'''
+class BMSDiscoverSCBatteryStatus ():
+   initialized = False;
+   batteryStateOfCharge = 0;
+   batteryStateOfHealth = 0;
+
+   def decode(self, buffer):
+      # Unpack 8 bytes (little endian)      
+      unpackedBuffer = struct.unpack("<HHHH", buffer) 
+
+      self.batteryStateOfCharge = unpackedBuffer[0]
+      self.batteryStateOfHealth = unpackedBuffer[1]
+      self.initialized = True;
+
+'''
+BMS Battery Measurements (0x356)
+Transmission Rate: 1000ms
+
+Example: 
+  can0  356   [8]  11 02 A4 FF F0 00 00 00
+  
+  Bytes Value   Dec Value   Converted Value     Description   
+  0-1   0211    529         52.9 V              Battery Voltage
+  2-3   FFBB    65444       -9.2 A              Battery Current
+  4-5   00F0    240         24 ºC               Battery Temperature
+  6-7   0000    0           0                   Reserved
+'''
+class BMSDiscoverSCBatteryMeasurements ():
+   initialized = False;
+   batteryVoltage = 0.0;
+   batteryCurrent = 0.0;
+   batteryTemperature = 0.0;
+   batteryTemperatureF = 0.0;
+
+   def decode(self, buffer):
+      # Unpack 8 bytes (little endian)      
+      unpackedBuffer = struct.unpack("<HhhH", buffer) 
+
+      self.batteryVoltage = unpackedBuffer[0]/10
+      self.batteryCurrent = unpackedBuffer[1]/10
+      self.batteryTemperature = unpackedBuffer[2]/10
+      self.batteryTemperatureF = (self.batteryTemperature * 9/5) +32
+      self.initialized = True;
+
+
+
+class Alarm(Enum):
+
+   CELL_VOLTAGE_HIGH, \
+   CELL_VOLTAGE_LOW, \
+   CELL_VOLTAGE_DIFFERENCE_HIGH, \
+   CELL_TEMPERATURE_HIGH, \
+   CELL_TEMPERATURE_LOW, \
+   PACK_VOLTAGE_HIGH, \
+   PACK_VOLTAGE_LOW, \
+   PACK_CURRENT_HIGH, \
+   PACK_CURRENT_LOW, \
+   PACK_TEMPERATURE_HIGH, \
+   PACK_TEMPERATURE_LOW, \
+   CHARGE_CURRENT_HIGH, \
+   CHARGE_VOLTAGE_HIGH, \
+   CHARGE_VOLTAGE_LOW, \
+   CHARGE_TEMPERATURE_HIGH, \
+   CHARGE_TEMPERATURE_LOW, \
+   CHARGE_MODULE_TEMPERATURE_HIGH, \
+   DISCHARGE_CURRENT_HIGH, \
+   DISCHARGE_VOLTAGE_HIGH, \
+   DISCHARGE_VOLTAGE_LOW, \
+   DISCHARGE_TEMPERATURE_HIGH, \
+   DISCHARGE_TEMPERATURE_LOW, \
+   DISCHARGE_MODULE_TEMPERATURE_HIGH, \
+   SOC_HIGH, \
+   SOC_LOW, \
+   ENCASING_TEMPERATURE_HIGH, \
+   ENCASING_TEMPERATURE_LOW, \
+   TEMPERATURE_SENSOR_DIFFERENCE_HIGH, \
+   FAILURE_SENSOR_CELL_TEMPERATURE, \
+   FAILURE_SENSOR_PACK_TEMPERATURE, \
+   FAILURE_SENSOR_CHARGE_MODULE_TEMPERATURE, \
+   FAILURE_SENSOR_DISCHARGE_MODULE_TEMPERATURE, \
+   FAILURE_SENSOR_PACK_VOLTAGE, \
+   FAILURE_SENSOR_PACK_CURRENT, \
+   FAILURE_COMMUNICATION_INTERNAL, \
+   FAILURE_COMMUNICATION_EXTERNAL, \
+   FAILURE_CLOCK_MODULE, \
+   FAILURE_CHARGE_BREAKER, \
+   FAILURE_DISCHARGE_BREAKER, \
+   FAILURE_SHORT_CIRCUIT_PROTECTION, \
+   FAILURE_EEPROM_MODULE, \
+   FAILURE_PRECHARGE_MODULE, \
+   FAILURE_NOT_CHARGING_DUE_TO_LOW_VOLTAGE, \
+   FAILURE_OTHER = range (1,45)
+
+class AlarmLevel(Enum):
+
+   NONE, \
+   WARNING, \
+   ALARM = range (1,4)
+
+'''
+BMS Battery Alarms (0x35A)
+Transmission Rate: 1000ms
+
+Example: 
+  can0  35A   [7]  AB AA FE AF AA FA FF
+  
+  Byte  Value   Dec Value   Converted Value     Description   
+'''
+class BMSDiscoverSCBatteryAlarms ():
+   initialized = False
+
+   alarms = {}
+   protections = {}
+
+   def __BytesTo2bits(self, data):
+      bits_array = []
+      doubleBitsArray = []
+      for byte in data:
+         bits = bin(byte)[2:].zfill(8)
+         bits_array.extend(map(int, bits))
+
+      for bittuple in zip(bits_array[::2], bits_array[1::2]):
+        #print (int(str(bit1) + str(bit2),2))
+        doubleBitsArray.append(int(str(bittuple[0]) + str(bittuple[1]),2))
+
+      return doubleBitsArray
+   
+   def __setAlarm(self, alarm, BMSAlarmState):
+      # Discover protocol sends 0=Ignored - Not Used, 1=Alarm/Warning, 2=Normal Operation, 3=Ignored - Not Used 
+      if BMSAlarmState != 1:
+         level=AlarmLevel.NONE
+      else:
+         level=AlarmLevel.ALARM
+      # Alarm 
+      if level != AlarmLevel.NONE:
+         self.alarms[alarm] = AlarmLevel.ALARM
+      else:
+         #Clear Alarm
+         if alarm in self.alarms:
+            del self.alarms[alarm]
+
+   def __setProtections(self, protection, BMSAlarmState):
+      # Discover protocol sends 0=Ignored - Not Used, 1=Alarm/Warning, 2=Normal Operation, 3=Ignored - Not Used 
+      if BMSAlarmState != 1:
+         level=AlarmLevel.NONE
+      else:
+         level=AlarmLevel.WARNING
+      # Alarm 
+      if level != AlarmLevel.NONE:
+         self.protections[protection] = AlarmLevel.WARNING
+      else:
+         #Clear Alarm
+         if protection in self.protections:
+            del self.protections[protection]
+
+   def decode(self, buffer):
+      # Unpack 8 bytes (little endian)      
+      #unpackedBuffer = struct.unpack("<HHHc", buffer) 
+
+      #print (self.__access_bit(buffer,1))
+      errorWarningArray = self.__BytesTo2bits(buffer)
+      logger.debug('Read 0x35A - Raw Alerts/Protections Array: %s', errorWarningArray)
+      self.__setAlarm(Alarm.FAILURE_OTHER, errorWarningArray[0])  #General BMS Alarm
+      self.__setAlarm(Alarm.PACK_VOLTAGE_HIGH, errorWarningArray[1])  #High Voltage Alarm
+      self.__setAlarm(Alarm.PACK_VOLTAGE_LOW, errorWarningArray[2])  #Low Voltage Alarm
+      self.__setAlarm(Alarm.DISCHARGE_TEMPERATURE_HIGH, errorWarningArray[3])  #High Temperature Discharge Alarm
+      self.__setAlarm(Alarm.DISCHARGE_TEMPERATURE_LOW, errorWarningArray[4])  #Low Temperature Discharge Alarm
+      self.__setAlarm(Alarm.CHARGE_TEMPERATURE_HIGH, errorWarningArray[5])  #High Temperature Charge Alarm
+      self.__setAlarm(Alarm.CHARGE_TEMPERATURE_LOW, errorWarningArray[6])  #Low Temperature Charge Alarm
+      self.__setAlarm(Alarm.DISCHARGE_CURRENT_HIGH, errorWarningArray[7])  #Battery High Discharge Alarm
+      self.__setAlarm(Alarm.CHARGE_CURRENT_HIGH, errorWarningArray[8])  #Battery High Charge Current Alarm
+      #skip (byte 2, bits 2-3)
+      self.__setAlarm(Alarm.FAILURE_OTHER, errorWarningArray[10]) #Internal BMS Alarm
+      self.__setAlarm(Alarm.CELL_VOLTAGE_DIFFERENCE_HIGH, errorWarningArray[11]) #Imbalanced Cell Alarm
+      #skip (byte 3, bits 0-1)
+      #skip (byte 4, bits 2-3)
+      self.__setProtections(Alarm.PACK_VOLTAGE_HIGH, errorWarningArray[14]) #High Voltage Warning
+      self.__setProtections(Alarm.PACK_VOLTAGE_LOW, errorWarningArray[15]) #Low Voltage Warning
+      self.__setProtections(Alarm.DISCHARGE_TEMPERATURE_HIGH, errorWarningArray[16]) #High Temperature Discharge Warning
+      self.__setProtections(Alarm.DISCHARGE_TEMPERATURE_LOW, errorWarningArray[17]) #Low Temperature Discharge Warning
+      self.__setProtections(Alarm.CHARGE_TEMPERATURE_HIGH, errorWarningArray[18]) #High Temperature Charge Warning
+      self.__setProtections(Alarm.CHARGE_TEMPERATURE_LOW, errorWarningArray[19]) #Low Tmperature Charge Warning
+      self.__setProtections(Alarm.DISCHARGE_CURRENT_HIGH, errorWarningArray[20]) #Battery High Discharge Current Warning
+      self.__setProtections(Alarm.CHARGE_CURRENT_HIGH, errorWarningArray[21]) #Battery High Charge Current Warning
+      #skip (byte 5, bits 4-5)
+      self.__setProtections(Alarm.FAILURE_OTHER, errorWarningArray[23]) #Internal BMS Warning
+      self.__setProtections(Alarm.CELL_VOLTAGE_DIFFERENCE_HIGH, errorWarningArray[24]) #Imbalanced Cell Warning
+      #skip (bytes 6, bits 2-7)
+
+      self.initialized = True;
+
+'''
+BMS Battery Manufacturer Name (0x35E)
+Transmission Rate: 10000ms
+
+Example: 
+  can0  35E   [8]  44 49 53 43 4F 56 45 52
+  
+  Bytes 0-7 ASCII = DISCOVER
+'''
+class BMSDiscoverSCBatteryManufacturer ():
+   initialized = False;
+   manufacturer = '';
+
+   def decode(self, buffer):
+      # Unpack 8 bytes (little endian)      
+      self.manufacturer = buffer.decode('utf-8').rstrip('\u0000')
+      self.initialized = True
+
+'''
+BMS Battery Model Name Upper (0x370)
+Transmission Rate: 10000ms
+
+Example: 
+  can0  370   [8]  00 00 00 00 00 00 00 00
+  
+  Bytes 0-7 ASCII = NULL
+'''
+class BMSDiscoverSCModelNameUpper ():
+   initialized = False;
+   modelName = '';
+
+   def decode(self, buffer):
+      # Unpack 8 bytes (little endian)      
+      self.modelName = buffer.decode('utf-8').rstrip('\u0000')
+      self.initialized = True
+
+'''
+BMS Battery Model Name Lower (0x371)
+Transmission Rate: 10000ms
+
+Example: 
+  can0  371   [8]  00 00 00 00 00 00 00 00
+  
+  Bytes 0-7 ASCII = NULL
+'''
+class BMSDiscoverSCModelNameLower ():
+   initialized = False;
+   modelName = '';
+
+   def decode(self, buffer):
+      # Unpack 8 bytes (little endian)      
+      self.modelName = buffer.decode('utf-8').rstrip('\u0000')
+      self.initialized = True
+
+'''
+BMS Battery Lynx Firmware (0x372)
+Transmission Rate: 10000ms
+
+Example: 
+  can0  372   [4]  00 00 01 02
+  
+  Bytes 0-7 unsigned integer (xx.yy.zz.tt) little endian = 2.1.0.0
+'''
+class BMSDiscoverSCLynxFirmware ():
+   initialized = False;
+   versionString = '';
+   versionInt = 0;
+
+   def decode(self, buffer):
+      versionFmtString = ""
+      versionString = ""
+      for abyte in buffer:
+         versionFmtString = str(abyte) + "." + versionFmtString
+         versionString =  str(abyte) + versionString
+      self.versionString = versionFmtString[:-1]
+      self.versionInt = str(versionString)
+
+'''
+BMS Battery Protocol Version (0x373)
+Transmission Rate: 10000ms
+
+Example: 
+  can0  373   [4]  01 00 00 00
+  
+  Byte 0 unsigned integer (xx) = 1
+'''
+class BMSDiscoverSCProtocolVersion():
+   initialized = False;
+   versionString = '';
+   versionInt = 0;
+
+   def decode(self, buffer):
+      self.versionString = str(buffer[0])
+      self.versionInt = buffer[0]
+
+'''
+--------------------------------------
+Inverter Classes (PYLONTECH Protocol)
+--------------------------------------
+'''
+
+'''
+Pylontech Battery Limits (0x351)
+
+Example: 
+  can0  351   [8]  2F 02 04 0B 04 0B B0 01
+  
+  Bytes Value   Dec Value   Converted Value     Description   
+  0-1   022F    559         55.9v               Requested Charge Voltage
+  2-3   0B04    2820        28.2a               Requested Charge Current
+  4-5   0B04    2820        28.2a               Requested Maximum Discharge Current
+  6-7   01B0    432         43.2v               Low Battery Cut Out Voltage
+'''
+class PylonBatteryLimits ():
+   frame = 0x0351
+   message = ""
+
+   def encode(self):
+      # Pack 8 bytes (little endian)   
+      if BMSBatteryLimits.initialized:   
+         self.message = struct.pack ('<HHHH', int(BMSBatteryLimits.requestedChargeVoltage*10), 
+                     int(BMSBatteryLimits.requestedChargeCurrent*10), 
+                     int(BMSBatteryLimits.requestedMaximumDischargeCurrent*10),
+                     int(BMSBatteryLimits.lowBatteryCutOutVoltage*10))
+         return True
+      else:
+         return False
+       
+'''
+Pylontech Battery Status (0x355)
+
+Example: 
+  can0  355   [8]  62 00 64 00 00 00 00 00
+  
+  Bytes Value   Dec Value   Converted Value     Description   
+  0-1   004D    77          77%                 Battery State of Charge
+  2-3   0064    100         100%                Battery State of Health
+  4-7   0000    0           0                   Reserved
+'''
+class PylonBatteryStatus ():
+   frame = 0x0355
+   message = ""
+
+   def encode(self):
+      # temp hold at 99 to allow charge
+      if BMSBatteryStatus.batteryStateOfCharge == 100:
+         BMSBatteryStatus.batteryStateOfCharge = 99
+      # Pack 8 bytes (little endian)   
+      if BMSBatteryStatus.initialized:   
+         self.message = struct.pack ('<HHHH', int(BMSBatteryStatus.batteryStateOfCharge), 
+                     int(BMSBatteryStatus.batteryStateOfHealth), 
+                     0,
+                     0)
+         return True
+      else:
+         return False
+
+'''
+Pylontech Battery Measurements (0x356)
+
+Example: 
+  can0  356   [8]  11 02 A4 FF F0 00 00 00
+  
+  Bytes Value   Dec Value   Converted Value     Description   
+  0-1   0211    529         52.9 V              Battery Voltage
+  2-3   FFBB    65444       -9.2 A              Battery Current
+  4-5   00F0    240         24 ºC               Battery Temperature
+  6-7   0000    0           0                   Reserved
+'''
+class PylonBatteryMeasurements ():
+   frame = 0x0356
+   message = ""
+
+   def encode(self):
+      # Pack 8 bytes (little endian)   
+      if BMSBatteryMeasurements.initialized:   
+         self.message = struct.pack ('<HhhH', int(BMSBatteryMeasurements.batteryVoltage*100), 
+                     int(BMSBatteryMeasurements.batteryCurrent*10), 
+                     int(BMSBatteryMeasurements.batteryTemperature*10),
+                     0)
+         return True
+      else:
+         return False
+
+'''
+Pylontech Charge Flags (0x35C)
+
+Example: 
+  can0  356   [2]  00 00
+  
+  Bytes Value   Description   
+  0:3   1       Request Full Charge
+  0:4   1       Request Force Charge II (SOC 5-10%)
+  0:5   1       Request Force Charge I (SOC 15-19%)
+  0:6   1       Discharge Enable
+  0:7   1       Charge Enable
+'''
+class PylonBatteryChargeFlags ():
+   frame = 0x035C
+   message = ""
+
+   def encode(self):
+      # Pack 2 bytes (little endian)   
+      charge_enable =128     #bit 7
+      discharge_enable = 64  #bit 6
+      full_charge_enable = 8 #bit 3
+      request_force_charge_1 = 32 #bit 5
+      request_force_charge_2 = 16 #bit 4
+      self.message = struct.pack ('<BB', charge_enable+
+                                  discharge_enable+
+                                  full_charge_enable+
+                                  request_force_charge_1+
+                                  request_force_charge_2, 0)
+      return True
+
+'''
+Pylontech Battery Alarms/Protections (0x359)
+
+Example: 
+  can0  359   [7]  00 00 00 00 01 50 4E
+'''
+class PylonBatteryAlarms ():
+   frame = 0x0359
+   message = ""
+
+   def __set_bit(self, byteArrayp, byte_index, bit_index):
+       byteT = byteArrayp[byte_index]
+       byteT |= 1<<bit_index
+       byteArrayp[byte_index] = byteT
+       
+
+   def encode(self):
+      if BMSBatteryAlarms.initialized:
+         alarmsByteArray = bytearray(7)
+ 
+         
+         '''
+         Byte 0                        Bit
+         CellOvervoltageError        1
+         CellUndervoltageError       2
+         CellOvertemperatureError    3
+         CellUndertemperatureError   4
+         DischargeOvercurrentError   7
+
+         Byte 1                        Bit
+         ChargeOvercurrentError      0
+         SystemError                 3
+         '''
+         #Alarms
+         if Alarm.PACK_VOLTAGE_HIGH in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,0,1)
+         if Alarm.PACK_VOLTAGE_LOW in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,0,2)
+         if Alarm.DISCHARGE_TEMPERATURE_HIGH in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,0,3)
+         if Alarm.CHARGE_TEMPERATURE_HIGH in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,0,3)
+         if Alarm.DISCHARGE_TEMPERATURE_LOW in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,0,4)
+         if Alarm.CHARGE_TEMPERATURE_LOW in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,0,4)
+         if Alarm.DISCHARGE_CURRENT_HIGH in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,0,7)
+         if Alarm.CHARGE_CURRENT_HIGH in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,1,0)
+         if Alarm.FAILURE_OTHER in BMSBatteryAlarms.alarms: self.__set_bit(alarmsByteArray,1,3)
+
+         '''
+         Byte 2                        Bit
+         CellOvervoltageWarning        1
+         CellUndervoltageWarning       2
+         CellOvertemperatureWarning    3
+         CellUndertemperatureWarning   4
+         DischargeOvercurrentWarning   7
+
+         Byte 3                        Bit
+         ChargeOvercurrentWarning      0
+         SystemWarning                 3
+         '''
+         #Alarms
+         if Alarm.PACK_VOLTAGE_HIGH in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,2,1)
+         if Alarm.PACK_VOLTAGE_LOW in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,2,2)
+         if Alarm.DISCHARGE_TEMPERATURE_HIGH in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,2,3)
+         if Alarm.CHARGE_TEMPERATURE_HIGH in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,2,3)
+         if Alarm.DISCHARGE_TEMPERATURE_LOW in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,2,4)
+         if Alarm.CHARGE_TEMPERATURE_LOW in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,2,4)
+         if Alarm.DISCHARGE_CURRENT_HIGH in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,2,7)
+         if Alarm.CHARGE_CURRENT_HIGH in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,3,0)
+         if Alarm.FAILURE_OTHER in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,3,3)
+
+         alarmsByteArray[4] = 1   # module number
+         alarmsByteArray[5] = 0x50
+         alarmsByteArray[6] = 0x4E
+
+         self.message=alarmsByteArray
+
+         return True
+      else:
+         return False
+
+'''
+Pylon Battery Manufacturer Name (0x35E)
+
+Example: 
+  can0  35E   [8]  44 49 53 43 4F 56 45 52
+  
+  Bytes 0-7 ASCII = DISCOVER
+'''
+class PylonBatteryManufacturer ():
+   frame = 0x035E
+   message = ""
+
+   def encode(self):
+      # pack 8 bytes 
+      if BMSManufacturer.initialized:     
+         self.message = bytearray(BMSManufacturer.manufacturer.encode())
+         #struct.pack('cccccccc',BMSManufacturer.manufacturer)
+         return True
+      else:
+         return False
+
+'''
+--------------------------------------
+CAN Methods
+--------------------------------------
+'''
+
+def openCANPort (CANChannel, CANBitrate):
+   try:
+      CANPort = can.interface.Bus(interface='socketcan', channel=CANChannel, bitrate=CANBitrate)
+      return CANPort
+   except:
+      logger.error('Error: Failed to open CAN Port, exiting')
+      exit ()
+
+'''
+--------------------------------------
+BMS Reader Methods
+--------------------------------------
+'''
+
+def readBMS(runEvent,CANPort):
+   global BMSBatteryLimits
+   global BMSBatteryCapacity
+   global BMSBatteryStatus
+   global BMSBatteryMeasurements
+   global BMSBatteryAlarms
+   global BMSManufacturer
+   global BMSModelNameUpper
+   global BMSModelNameLower
+   global BMSLynxFirmware
+   global BMSProtocolVersion
+
+   BMSBatteryLimits = BMSDiscoverSCBatteryLimits ()
+   BMSBatteryCapacity = BMSDiscoverSCBatteryCapacity ()
+   BMSBatteryStatus = BMSDiscoverSCBatteryStatus ()
+   BMSBatteryMeasurements = BMSDiscoverSCBatteryMeasurements ()
+   BMSBatteryAlarms = BMSDiscoverSCBatteryAlarms ()
+   BMSManufacturer = BMSDiscoverSCBatteryManufacturer ()
+   BMSModelNameUpper = BMSDiscoverSCModelNameUpper ()
+   BMSModelNameLower = BMSDiscoverSCModelNameLower ()
+   BMSLynxFirmware = BMSDiscoverSCLynxFirmware ()
+   BMSProtocolVersion = BMSDiscoverSCProtocolVersion ()
+
+   while runEvent.is_set():
+      message = CANPort.recv()
+      if message is not None:
+         if message.arbitration_id == 0x35E:
+            BMSManufacturer.decode(message.data)
+            logger.debug('Read 0x35E - Manufacturer: %s', BMSManufacturer.manufacturer)
+         elif message.arbitration_id == 0x351:
+            #sys.stdout.write('\r\033[31mBMS \033[0mInverter')
+            #sys.stdout.flush()
+            BMSBatteryLimits.decode(message.data)
+            logger.debug('Read 0x351 - Requested Charge Voltage: %s', BMSBatteryLimits.requestedChargeVoltage)
+            logger.debug('Read 0x351 - Requested Charge Current: %s',BMSBatteryLimits.requestedChargeCurrent)
+            logger.debug('Read 0x351 - Requested Max Discharge Current: %s',BMSBatteryLimits.requestedMaximumDischargeCurrent)
+            logger.debug('Read 0x351 - Low Battery Cutout Voltage: %s',BMSBatteryLimits.lowBatteryCutOutVoltage)
+         elif message.arbitration_id == 0x354:
+            BMSBatteryCapacity.decode(message.data)
+            logger.debug('Read 0x354 - Battery Nominal Capacity: %s', BMSBatteryCapacity.batteryNominalCapacity)
+            logger.debug('Read 0x354 - Battery Remaining Capacity: %s', BMSBatteryCapacity.batteryRemainingCapacity)
+         elif message.arbitration_id == 0x355:
+            BMSBatteryStatus.decode(message.data)
+            logger.debug('Read 0x355 - Battery State of Charge: %s', BMSBatteryStatus.batteryStateOfCharge)
+            logger.debug('Read 0x355 - Battery State of Health: %s', BMSBatteryStatus.batteryStateOfHealth)
+         elif message.arbitration_id == 0x356:
+            BMSBatteryMeasurements.decode(message.data)
+            logger.debug('Read 0x356 - Battery Voltage: %s', BMSBatteryMeasurements.batteryVoltage)
+            logger.debug('Read 0x356 - Battery Current: %s', BMSBatteryMeasurements.batteryCurrent)
+            logger.debug('Read 0x356 - Battery Temperature: %s', BMSBatteryMeasurements.batteryTemperature)
+            logger.debug('Read 0x356 - Battery Temperature ºF: %s', BMSBatteryMeasurements.batteryTemperatureF)
+         elif message.arbitration_id == 0x35A:
+            BMSBatteryAlarms.decode(message.data)
+            logger.debug('Read 0x35A - Battery Alarms: %s', BMSBatteryAlarms.alarms)
+            logger.debug('Read 0x35A - Battery Protections (Warnings): %s', BMSBatteryAlarms.protections)
+         elif message.arbitration_id == 0x370:
+            BMSModelNameUpper.decode(message.data)
+            logger.debug('Read 0x370 - Battery Model Name: %s', BMSModelNameUpper.modelName)
+         elif message.arbitration_id == 0x371:
+            BMSModelNameLower.decode(message.data)
+            logger.debug('Read 0x371 - Battery Model Name (Lower): %s', BMSModelNameLower.modelName)
+         elif message.arbitration_id == 0x372:
+            BMSLynxFirmware.decode(message.data)
+            logger.debug('Read 0x372 - Lynx Firmware Version: %s', BMSLynxFirmware.versionString)
+         elif message.arbitration_id == 0x373:
+            BMSProtocolVersion.decode(message.data)
+            logger.debug('Read 0x373 - Battery Protocol Version: %s', BMSProtocolVersion.versionString)
+         else:
+            logger.error ("reading unhandled message: " + str(message.arbitration_id))
+
+'''
+--------------------------------------
+inverterWriter Methods
+--------------------------------------
+'''
+
+def writeInverter (runEvent,CANPort, frequency):
+   InvBatteryLimits = PylonBatteryLimits ()
+   InvBatteryStatus = PylonBatteryStatus ()
+   InvBatteryMeasurements = PylonBatteryMeasurements ()
+   InvBatteryChargeFlags = PylonBatteryChargeFlags ()
+   InvBatteryManufacturer = PylonBatteryManufacturer () 
+   InvBatteryAlarms = PylonBatteryAlarms ()
+
+   while runEvent.is_set():
+      #0x351
+      if (InvBatteryLimits.encode()):
+         msg = can.Message(arbitration_id=InvBatteryLimits.frame, data=InvBatteryLimits.message,is_extended_id=False)
+         CANPort.send(msg)
+         #sys.stdout.write('\r\033[0mBMS \033[31mInverter\033[0m')
+         #sys.stdout.flush()
+      #0x355
+      if (InvBatteryStatus.encode()):
+         msg = can.Message(arbitration_id=InvBatteryStatus.frame, data=InvBatteryStatus.message, is_extended_id=False)
+         CANPort.send(msg)
+      # 0x356
+      if (InvBatteryMeasurements.encode()):
+         msg = can.Message(arbitration_id=InvBatteryMeasurements.frame, data=InvBatteryMeasurements.message, is_extended_id=False)
+         CANPort.send(msg)
+      # 0x35C --- #to-do need to find some may to control full charge and maybe force charge flags
+      if (InvBatteryChargeFlags.encode()):
+         msg = can.Message(arbitration_id=InvBatteryChargeFlags.frame, data=InvBatteryChargeFlags.message, is_extended_id=False)
+         CANPort.send(msg)
+      # 0x35E
+      if (InvBatteryManufacturer.encode()):
+         msg = can.Message(arbitration_id=InvBatteryManufacturer.frame, data=InvBatteryManufacturer.message, is_extended_id=False) 
+         CANPort.send(msg)
+      # 0x359
+      if (InvBatteryAlarms.encode()):
+         msg = can.Message(arbitration_id=InvBatteryAlarms.frame, data=InvBatteryAlarms.message, is_extended_id=False) 
+         CANPort.send(msg)
+      sleep(frequency)      
+
+'''
+--------------------------------------
+inverter Heartbeat Methods
+--------------------------------------
+'''
+
+def inverterHeartbeat (runEvent,InverterCANPort, BMSCANPort):
+   #forward heartbeat events to BMS
+   while runEvent.is_set():
+      message = InverterCANPort.recv()
+      if message is not None:
+         BMSCANPort.send(message)
+      
+
+'''
+--------------------------------------
+Periodic info messages
+--------------------------------------
+'''
+
+def infoMessage(runEvent,frequency):
+
+   while runEvent.is_set():
+      logger.info ('')
+      logger.info ('SOC\tVoltage\tAmps\tTemperature')
+      logger.info ('---\t-------\t----\t-----------')
+      logger.info (str(BMSBatteryStatus.batteryStateOfCharge) + "\t" +
+                   str(BMSBatteryMeasurements.batteryVoltage) + "\t" +
+                   str(BMSBatteryMeasurements.batteryCurrent) + "\t" +
+                   str(BMSBatteryMeasurements.batteryTemperature))
+      sleep(frequency)
+
+'''
+--------------------------------------
+MQTT Methods
+--------------------------------------
+'''
+
+# mqtt on connect event
+def MQTTOnConnect(client, userdata, flags, rc):
+   logger.info ('MQTT Connection Acknowledgment received')
+
+def MQTTConnect (hostname, port):
+   client = mqtt.Client()
+   client.on_connect = MQTTOnConnect
+   client.connect(hostname, port)
+   client.loop_start()
+   return client
+
+def MQTTWriter (runEvent, frequency):
+   while runEvent.is_set():
+      data= {
+         "lowBatteryCutOutVoltage": BMSBatteryLimits.lowBatteryCutOutVoltage,
+         "requestedChargeCurrent": BMSBatteryLimits.requestedChargeCurrent,
+         "requestedChargeVoltage": BMSBatteryLimits.requestedChargeVoltage,
+         "requestedMaximumDischargeCurrent": BMSBatteryLimits.requestedMaximumDischargeCurrent,
+         "stateOfCharge": BMSBatteryStatus.batteryStateOfCharge,
+         "stateOfHealth": BMSBatteryStatus.batteryStateOfHealth,
+         "batteryNominalCapacity":BMSBatteryCapacity.batteryNominalCapacity,
+         "batteryRemainingCapacity":BMSBatteryCapacity.batteryRemainingCapacity,
+         "batteryCurrent":BMSBatteryMeasurements.batteryCurrent,
+         "batteryTemperature":BMSBatteryMeasurements.batteryTemperature,
+         "batteryTemperatureF":BMSBatteryMeasurements.batteryTemperatureF,
+         "batteryVoltage":BMSBatteryMeasurements.batteryVoltage,
+         "manufacturer":BMSManufacturer.manufacturer,
+         "lynxFirmwareVersion":BMSLynxFirmware.versionString,
+         "BMSModelNameUpper":BMSModelNameUpper.modelName,
+         "BMSModelNameLower":BMSModelNameLower.modelName,
+         "protocolVersion":BMSProtocolVersion.versionString
+         }
+      (rc, mid) = MQTTClient.publish("DiscoverStorage", json.dumps(data, indent=2), qos=2)
+
+      sleep(frequency)
+
+
+def main():
+   global BMSCANPortParam
+   global BMSCANPortRateParam
+   global InverterCANPortParam
+   global InverterCANPortRateParam
+   global LogLevelParam
+
+
+   global MQTTClient
+
+   #start logger
+   logFormat = '%(asctime)s %(message)s'
+   logging.basicConfig(format=logFormat)
+   logger = logging.getLogger()
+   logger.setLevel(logging.DEBUG)
+
+   BMSCANPort = openCANPort (BMSCANPortParam,BMSCANPortRateParam) 
+   InverterCANPort = openCANPort (InverterCANPortParam, InverterCANPortRateParam)
+
+   MQTTClient = MQTTConnect("10.10.30.10", 1883)  #to-do paramaterize and config
+
+   runEvent = threading.Event()
+   runEvent.set()
+
+   #start continuous BMS Reader
+   readBMSThread = threading.Thread(target = readBMS, args=[runEvent,BMSCANPort])
+   readBMSThread.start()
+
+   #start continuous timed MQTT Writer
+   MQTTWriterThread = threading.Thread(target = MQTTWriter, args=[runEvent,5])
+   MQTTWriterThread.start()
+
+   #write to Inverter
+   writeInverterThread = threading.Thread(target = writeInverter, args=[runEvent,InverterCANPort,1])
+   writeInverterThread.start ()
+
+   #inverter heartbeat
+   inverterHeartbeatThread = threading.Thread(target=inverterHeartbeat, args=[runEvent,InverterCANPort, BMSCANPort])
+   inverterHeartbeatThread.start ()
+
+   #Periodic info messages
+   sleep (1)
+   infoMessageThread = threading.Thread(target=infoMessage, args=[runEvent,10])
+   infoMessageThread.start ()
+
+   try:
+      while True:
+        sleep(.1)
+   except KeyboardInterrupt:
+      logger.info('')
+      logger.info('Interrupt received, closing threads')
+      runEvent.clear()
+      readBMSThread.join()
+      MQTTWriterThread.join()
+      writeInverterThread.join()
+      infoMessageThread.join()
+      inverterHeartbeatThread.join()
+      
+      BMSCANPort.shutdown()
+      InverterCANPort.shutdown()
+      
+
+
+#application entry point:
+if __name__ == "__main__":
+   parser = argparse.ArgumentParser()
+   parser.add_argument("-b", "--bmsport", default = "can0", help="BMS commuications port descriptor, e.g. can0")
+   parser.add_argument("-r", "--bmsportrate", default = 250000, type=int, help="BMS commuications port rate, e.g. 250000")
+   parser.add_argument("-i", "--inverterport", default = "can1", help="Inverter commuications port descriptor, e.g. can1")
+   parser.add_argument("-s", "--inverterportrate", default = 500000, type=int, help="Inverter commuications port rate, e.g. 500000")
+   parser.add_argument("-l", "--loglevel", default = "info", choices=["info", "warning", "debug"], help="log level: info, warning, debug")
+   args = parser.parse_args()
+
+   BMSCANPortParam = args.bmsport
+   BMSCANPortRateParam = args.bmsportrate
+   InverterCANPortParam = args.inverterport
+   InverterCANPortRateParam = args.inverterportrate
+   LogLevelParam = args.loglevel
+    
+   #start logger
+   logFormat = '%(asctime)s %(message)s'
+   logging.basicConfig(format=logFormat)
+   logger = logging.getLogger(__name__)
+   if LogLevelParam == 'info':
+      logger.setLevel(logging.INFO)
+   elif LogLevelParam == 'warning':
+      logger.setLevel(logging.WARNING)
+   elif LogLevelParam == 'debug':
+      logger.setLevel(logging.DEBUG)
+
+   #start logger for CAN module
+   logger2 = logging.getLogger('can')
+   logger2.setLevel(logging.INFO)
+ 
+
+   logger.info("Discover Battery BMS to Midnite AIO Inverter")
+   logger.info("BMS Port: " + BMSCANPortParam)
+   logger.info("Inverter Port: " + InverterCANPortParam)
+   logger.info("Log Level: " + LogLevelParam)
+
+   main()                  # call the main function:
