@@ -437,6 +437,7 @@ class PylonBatteryStatus ():
    message = ""
    InverterFakeoutSOC = 0
    CellBalancingRemainingTime = 0
+   IsCellBalancingActive = False
 
    def __init__(self):
       self.cellBalancing = CellBalancing()
@@ -448,7 +449,9 @@ class PylonBatteryStatus ():
       # Pack 8 bytes (little endian)   
       if BMSBatteryStatus.initialized:   
          self.InverterFakeoutSOC = self.cellBalancing.evaluateSOC(BMSBatteryStatus.batteryStateOfCharge)
+         #self.InverterFakeoutSOC = BMSBatteryStatus.batteryStateOfCharge
          self.RemainingTime = self.cellBalancing.remainingTime
+         self.IsCellBalancingActive = self.cellBalancing.isCellBalancingActive
          self.message = struct.pack ('<HHHH', int(self.InverterFakeoutSOC), 
                      int(BMSBatteryStatus.batteryStateOfHealth), 
                      0,
@@ -646,8 +649,9 @@ class CellBalancing ():
       self.isCellBalancingActive = False
     
    def __remainingTime (self):
-      elapsedTime = datetime.now() - self.__timerStartTime
-      return (self.cellBalancingMinutes * 60) - elapsedTime
+      elapsedTime = datetime.datetime.now() - self.__timerStartTime
+      print ('elapsed time:' + str(elapsedTime))
+      return (self.cellBalancingMinutes * 60) - elapsedTime.seconds
 
    
    def evaluateSOC(self, SOC):
@@ -874,9 +878,11 @@ def MQTTWriter (runEvent, frequency):
       if 'InvBatteryStatus' in globals():
          InverterFakeoutSOC = InvBatteryStatus.InverterFakeoutSOC
          CellBalancingRemainingTime = InvBatteryStatus.CellBalancingRemainingTime
+         IsCellBalancingActive = InvBatteryStatus.IsCellBalancingActive
       else:
          InverterFakeoutSOC = -1
          CellBalancingRemainingTime = -1
+         IsCellBalancingActive = False
          
       data= {
          "lowBatteryCutOutVoltage": BMSBatteryLimits.lowBatteryCutOutVoltage,
@@ -886,6 +892,7 @@ def MQTTWriter (runEvent, frequency):
          "stateOfCharge": BMSBatteryStatus.batteryStateOfCharge,
          "inverterFakeoutSOC": InverterFakeoutSOC,
          "cellBalancingRemainingTime": CellBalancingRemainingTime,
+         "isCellBalancingActive": IsCellBalancingActive,
          "stateOfHealth": BMSBatteryStatus.batteryStateOfHealth,
          "batteryNominalCapacity":BMSBatteryCapacity.batteryNominalCapacity,
          "batteryRemainingCapacity":BMSBatteryCapacity.batteryRemainingCapacity,
