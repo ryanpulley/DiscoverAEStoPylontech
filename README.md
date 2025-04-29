@@ -46,6 +46,14 @@ I use the [Waveshare 2-Channel CAN FD HAT](https://www.waveshare.com/2-ch-can-fd
 #### Configure the Raspberry PI OS
 _The instructions below start from a freshly imaged SD card for a Raspberry PI 5 with the "Raspberry Pi OS (64-Bit) --- Debian Bookworm" image and basic configuration completed (network, accounts, timezone, initial software updates, etc.)._
 
+1) From the PI desktop, select [PI Icon][Preferences][Raspberry Pi Configuration]
+   a) On interfaces, enable SPI (required for the CAN Hat).  I also enable SSH and VNC so that I can remotely access the Raspberry PI.
+   b) reboot
+
+2) From a terminal window, install required packages
+
+  ```sudo apt install can-utils mosquitto mosquitto-clients```
+
 
 ### Configuring the Discover Lynk II gateway
 #### Jumper Settings
