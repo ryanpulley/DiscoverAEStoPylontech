@@ -39,7 +39,7 @@ Optional:
 ### Installing the Raspberry PI
 
 #### Install the CAN Hat
-Note that CAN hats do not typically fit in standard Raspberry PI cases.  As I use a touchscreen display on my Raspberry PI 5, I have no need for a case as it mounts on the back of the display.  If you choose to go "headless", there are some larger cases available.  
+Note that CAN hats do not typically fit in standard Raspberry PI cases.  As I use a touchscreen display, I have no need for a case as the Raspberry PI mounts on the back of the display.  If you choose to go "headless", there are some larger cases available that will accomodate the PI and the CAN Hat.  
 
 I use the [Waveshare 2-Channel CAN FD HAT](https://www.waveshare.com/2-ch-can-fd-hat.htm).  I highly recommend installing the CAN adapter standoffs that come with the board to stablize and avoid putting pressure on the pins with pulling cables, etc.
 
