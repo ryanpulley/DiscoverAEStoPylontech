@@ -9,5 +9,5 @@ cellbalancing:
   hold-soc: 99
   minutes: 35
 logging:
-  loglevel: info
+  loglevel: debug
   logfile: /home/ryanpulley/Project/DiscoverBMS/log/BMS2Inverter.log

@@ -260,7 +260,7 @@ class BMSDiscoverSCBatteryAlarms ():
 
       #print (self.__access_bit(buffer,1))
       errorWarningArray = self.__BytesTo2bits(buffer)
-      logger.debug('Read 0x35A - Raw Alerts/Protections Array: %s', errorWarningArray)
+      #logger.debug('Read 0x35A - Raw Alerts/Protections Array: %s', errorWarningArray)
       self.__setAlarm(Alarm.FAILURE_OTHER, errorWarningArray[0])  #General BMS Alarm
       self.__setAlarm(Alarm.PACK_VOLTAGE_HIGH, errorWarningArray[1])  #High Voltage Alarm
       self.__setAlarm(Alarm.PACK_VOLTAGE_LOW, errorWarningArray[2])  #Low Voltage Alarm
@@ -450,8 +450,11 @@ class PylonBatteryStatus ():
       if BMSBatteryStatus.initialized:   
          self.InverterFakeoutSOC = self.cellBalancing.evaluateSOC(BMSBatteryStatus.batteryStateOfCharge)
          #self.InverterFakeoutSOC = BMSBatteryStatus.batteryStateOfCharge
-         self.RemainingTime = self.cellBalancing.remainingTime
+         self.CellBalancingRemainingTime = self.cellBalancing.remainingTime
          self.IsCellBalancingActive = self.cellBalancing.isCellBalancingActive
+         logger.debug ("PylonBatteryStatus x355, InverterFakeoutSOC:" + str(self.InverterFakeoutSOC) +
+                       " CellBalancing Remaining Time:" + str(self.CellBalancingRemainingTime) +
+                       " CellBalancing Active: " + str(self.IsCellBalancingActive))
          self.message = struct.pack ('<HHHH', int(self.InverterFakeoutSOC), 
                      int(BMSBatteryStatus.batteryStateOfHealth), 
                      0,
@@ -637,20 +640,46 @@ class CellBalancing ():
    cellBalancingMinutes = 30  #number of minutes to balance
    isCellBalancingActive = False
    remainingTime = 0
+   lastBalanceDate = datetime.datetime.now()
+
+   def __init__(self):
+      #read date marker file
+      try: 
+         with open("cellbalance.marker", 'r') as file:
+            #lastBalanceDateStr = file.readline ()
+            self.lastBalanceDate = datetime.datetime.strptime(file.readline(),"%Y-%m-%d")
+            logger.debug("Read cellbalance.marker with:" +self.lastBalanceDate.strftime("%Y-%m-%d"))      
+      except FileNotFoundError:
+         with open("cellbalance.marker", "w") as file:
+            #for new file, start with the cell balancing today by writing last balance back #days in config
+            self.lastBalanceDate = datetime.datetime.now() - datetime.timedelta(days=self.cellBalancingInterval)
+            file.write(self.lastBalanceDate.strftime("%Y-%m-%d"))
+            logger.debug("Wrote cellbalance.marker with:" +self.lastBalanceDate.strftime("%Y-%m-%d"))
 
    def __evaluateDay (self):
-      return True
+      if datetime.datetime.now() > self.lastBalanceDate + datetime.timedelta(days=self.cellBalancingInterval):
+         logger.debug ('evaluated day for allowed run as True')
+         return True
+      else:
+         logger.debug ('evaluated day for allowed run as False')
+         return False
    
    def __startTimer (self):
       self.__timerStartTime = datetime.datetime.now()
       self.isCellBalancingActive = True
+      logger.debug ('starting cell balance timer:' +self.__timerStartTime.strftime("%Y-%m-%d %H:%M:%S"))
 
    def __stopTimer (self):
+      #write marker file with successful completion of cell balancing
+      with open("cellbalance.marker", "w") as file:
+         self.lastBalanceDate = datetime.datetime.now()
+         file.write(self.lastBalanceDate.strftime("%Y-%m-%d"))
       self.isCellBalancingActive = False
-    
+      logger.debug ('stopping cell balance timer, wrote marker:' +self.lastBalanceDate.strftime("%Y-%m-%d"))
+
    def __remainingTime (self):
       elapsedTime = datetime.datetime.now() - self.__timerStartTime
-      print ('elapsed time:' + str(elapsedTime))
+      logger.debug ('setting remaining time:' + str((self.cellBalancingMinutes*60)-elapsedTime.seconds))
       return (self.cellBalancingMinutes * 60) - elapsedTime.seconds
 
    
@@ -660,16 +689,21 @@ class CellBalancing ():
       if (self.isCellBalancingActive):
          self.remainingTime = self.__remainingTime()
          if (self.remainingTime > 0):
+            logger.debug ("evaluateSOC in cell balance, holding at:" + str(self.holdSOC))
             return self.holdSOC
          else:
+            logger.debug ("evaluateSOC hit cell balance time, stopping timer")
             self.__stopTimer()
       else:
          #evaluate if we have reached the start of hold
          if (SOC > self.__lastSOC):
             self.__lastSOC = SOC
+            logger.debug ("evaluateSOC increment SOC, last SOC now:" + str(self.__lastSOC))
             if (SOC > self.holdSOC):
                #start timer if we are on an active day
-               if self.evaluateDay():
+               logger.debug ("evaluateSOC reached hold SOC")
+               if self.__evaluateDay():
+                  logger.debug ("evaluateSOC evaluated day as true, starting timer and holding at:" + str(self.holdSOC))
                   self.__startTimer()
                   return self.holdSOC
       
@@ -729,45 +763,45 @@ def readBMS(runEvent,CANPort):
       if message is not None:
          if message.arbitration_id == 0x35E:
             BMSManufacturer.decode(message.data)
-            logger.debug('Read 0x35E - Manufacturer: %s', BMSManufacturer.manufacturer)
+            #logger.debug('Read 0x35E - Manufacturer: %s', BMSManufacturer.manufacturer)
          elif message.arbitration_id == 0x351:
             #sys.stdout.write('\r\033[31mBMS \033[0mInverter')
             #sys.stdout.flush()
             BMSBatteryLimits.decode(message.data)
-            logger.debug('Read 0x351 - Requested Charge Voltage: %s', BMSBatteryLimits.requestedChargeVoltage)
-            logger.debug('Read 0x351 - Requested Charge Current: %s',BMSBatteryLimits.requestedChargeCurrent)
-            logger.debug('Read 0x351 - Requested Max Discharge Current: %s',BMSBatteryLimits.requestedMaximumDischargeCurrent)
-            logger.debug('Read 0x351 - Low Battery Cutout Voltage: %s',BMSBatteryLimits.lowBatteryCutOutVoltage)
+            #logger.debug('Read 0x351 - Requested Charge Voltage: %s', BMSBatteryLimits.requestedChargeVoltage)
+            #logger.debug('Read 0x351 - Requested Charge Current: %s',BMSBatteryLimits.requestedChargeCurrent)
+            #logger.debug('Read 0x351 - Requested Max Discharge Current: %s',BMSBatteryLimits.requestedMaximumDischargeCurrent)
+            #logger.debug('Read 0x351 - Low Battery Cutout Voltage: %s',BMSBatteryLimits.lowBatteryCutOutVoltage)
          elif message.arbitration_id == 0x354:
             BMSBatteryCapacity.decode(message.data)
-            logger.debug('Read 0x354 - Battery Nominal Capacity: %s', BMSBatteryCapacity.batteryNominalCapacity)
-            logger.debug('Read 0x354 - Battery Remaining Capacity: %s', BMSBatteryCapacity.batteryRemainingCapacity)
+            #logger.debug('Read 0x354 - Battery Nominal Capacity: %s', BMSBatteryCapacity.batteryNominalCapacity)
+            #logger.debug('Read 0x354 - Battery Remaining Capacity: %s', BMSBatteryCapacity.batteryRemainingCapacity)
          elif message.arbitration_id == 0x355:
             BMSBatteryStatus.decode(message.data)
-            logger.debug('Read 0x355 - Battery State of Charge: %s', BMSBatteryStatus.batteryStateOfCharge)
-            logger.debug('Read 0x355 - Battery State of Health: %s', BMSBatteryStatus.batteryStateOfHealth)
+            #logger.debug('Read 0x355 - Battery State of Charge: %s', BMSBatteryStatus.batteryStateOfCharge)
+            #logger.debug('Read 0x355 - Battery State of Health: %s', BMSBatteryStatus.batteryStateOfHealth)
          elif message.arbitration_id == 0x356:
             BMSBatteryMeasurements.decode(message.data)
-            logger.debug('Read 0x356 - Battery Voltage: %s', BMSBatteryMeasurements.batteryVoltage)
-            logger.debug('Read 0x356 - Battery Current: %s', BMSBatteryMeasurements.batteryCurrent)
-            logger.debug('Read 0x356 - Battery Temperature: %s', BMSBatteryMeasurements.batteryTemperature)
-            logger.debug('Read 0x356 - Battery Temperature ºF: %s', BMSBatteryMeasurements.batteryTemperatureF)
+            #logger.debug('Read 0x356 - Battery Voltage: %s', BMSBatteryMeasurements.batteryVoltage)
+            #logger.debug('Read 0x356 - Battery Current: %s', BMSBatteryMeasurements.batteryCurrent)
+            #logger.debug('Read 0x356 - Battery Temperature: %s', BMSBatteryMeasurements.batteryTemperature)
+            #logger.debug('Read 0x356 - Battery Temperature ºF: %s', BMSBatteryMeasurements.batteryTemperatureF)
          elif message.arbitration_id == 0x35A:
             BMSBatteryAlarms.decode(message.data)
-            logger.debug('Read 0x35A - Battery Alarms: %s', BMSBatteryAlarms.alarms)
-            logger.debug('Read 0x35A - Battery Protections (Warnings): %s', BMSBatteryAlarms.protections)
+            #logger.debug('Read 0x35A - Battery Alarms: %s', BMSBatteryAlarms.alarms)
+            #logger.debug('Read 0x35A - Battery Protections (Warnings): %s', BMSBatteryAlarms.protections)
          elif message.arbitration_id == 0x370:
             BMSModelNameUpper.decode(message.data)
-            logger.debug('Read 0x370 - Battery Model Name: %s', BMSModelNameUpper.modelName)
+            #logger.debug('Read 0x370 - Battery Model Name: %s', BMSModelNameUpper.modelName)
          elif message.arbitration_id == 0x371:
             BMSModelNameLower.decode(message.data)
-            logger.debug('Read 0x371 - Battery Model Name (Lower): %s', BMSModelNameLower.modelName)
+            #logger.debug('Read 0x371 - Battery Model Name (Lower): %s', BMSModelNameLower.modelName)
          elif message.arbitration_id == 0x372:
             BMSLynxFirmware.decode(message.data)
-            logger.debug('Read 0x372 - Lynx Firmware Version: %s', BMSLynxFirmware.versionString)
+            #logger.debug('Read 0x372 - Lynx Firmware Version: %s', BMSLynxFirmware.versionString)
          elif message.arbitration_id == 0x373:
             BMSProtocolVersion.decode(message.data)
-            logger.debug('Read 0x373 - Battery Protocol Version: %s', BMSProtocolVersion.versionString)
+            #logger.debug('Read 0x373 - Battery Protocol Version: %s', BMSProtocolVersion.versionString)
          else:
             logger.error ("reading unhandled message: " + str(message.arbitration_id))
 #endregion
@@ -851,6 +885,17 @@ def infoMessage(runEvent,frequency):
                    str(BMSBatteryMeasurements.batteryVoltage) + "\t" +
                    str(BMSBatteryMeasurements.batteryCurrent) + "\t" +
                    str(BMSBatteryMeasurements.batteryTemperature))
+      if 'InvBatteryStatus' in globals():
+         if InvBatteryStatus.IsCellBalancingActive:
+            InverterFakeoutSOC = InvBatteryStatus.InverterFakeoutSOC
+            CellBalancingRemainingTime = InvBatteryStatus.CellBalancingRemainingTime
+            logger.info ('Cell Balancing Active: Seconds Remaining: ' + 
+                         str(CellBalancingRemainingTime) + "\t" +
+                         'SOC to Inverter: ' +
+                         str(InverterFakeoutSOC))  
+         else:
+            logger.info ('Cell balancing inactive')    
+
       sleep(frequency)
 #endregion
 

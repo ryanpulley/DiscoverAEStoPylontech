@@ -7,7 +7,7 @@ class CellBalancing ():
    __timerStartTime = datetime.datetime.now()
    holdSOC = 99                #SOC to hold at when actual SOC is greater than this value
    cellBalancingInterval = 1  #day interval to perform cell balancing
-   cellBalancingMinutes = 30  #number of minutes to balance
+   cellBalancingMinutes = 1  #number of minutes to balance
    isCellBalancingActive = False
    remainingTime = 0
 
@@ -53,12 +53,13 @@ class CellBalancing ():
 def main():
    cb = CellBalancing()
 
-   cb.evaluateSOC(99)
+   SOC = cb.evaluateSOC(99)
    time.sleep(1)
-   cb.evaluateSOC(100)
+   SOC = cb.evaluateSOC(100)
 
    while True:
-      cb.evaluateSOC(100)
+      SOC = cb.evaluateSOC(100)
+      print ("Fakeout SOC:" + str(SOC))
       print ("time remaining: " + str(cb.remainingTime))
       print ('is cell balancing: ' + str(cb.isCellBalancingActive))
       time.sleep(1)
