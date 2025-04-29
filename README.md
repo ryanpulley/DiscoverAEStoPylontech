@@ -2,18 +2,54 @@
 
 ![image](https://github.com/user-attachments/assets/34067a81-6ff9-407c-8231-5ed74aa4c1b0)
 
-![image](https://github.com/user-attachments/assets/aed18531-8435-414c-a9ec-40b45485453f)
-
 The Discover Lynx II gateway supports several brands of inverters, but lacks support for the Pylontech protocol which many inverters in the market support.  This has forced those of us who own Discover AES batteries to use inverters from manufacturers which Discover Energy Systems has a development relationship with.  Alternatively, we could use an open loop (voltage based) configuration with non-supported inverters, but that has many operational disadvantages.
 
-This solution allows owners of Discover AES batteries to choose from many available inverters in the market and benefit from a closed-loop integration.  It does this by reading packets from the Discover Lynx II gateway, transform them, and send them to a Pylontech protocol compatible inverter.
+This solution allows owners of Discover AES batteries to choose from many available inverters in the market and benefit from a closed-loop integration.  It does this by reading packets from the Discover Lynk II gateway, transform them, and send them to a Pylontech protocol compatible inverter.
 
-We use a Raspberry PI with a dual port CAN adapter (CAN hat) which one port connected to the CAN port of the Lynx II gateway and the other connected to the BMS Port of the inverter.  The Lynx II gateway is configured to a protocol which Discover Energy Systems has published a protocol for.  The software reads this protocol CAN messages continuously from the Lynx II gateway.  It then transforms to Pylontech CAN messages and sends them to the inverter.
+A Raspberry PI with a dual port CAN adapter (CAN hat) are used with one port connected to the CAN port of the Lynk II gateway and the other connected to the BMS Port of the inverter.  The Lynk II gateway is configured to a protocol which Discover Energy Systems has published a protocol for.  The software reads this protocol CAN messages continuously from the Lynk II gateway.  It then transforms to Pylontech CAN messages and sends them to the inverter.
 
-Additional Capabilities:
-  -  Monitoring - The application emits all data fields via Lynx II to an MQTT broker which can be used for monitoring, alerting, visualization of battery metrics.  This data can easily be integrated into popular platforms such as Home Assistant.
+----------
+
+## Additional Capabilities:
+  -  Monitoring - The application emits all data fields via Lynk II to an MQTT broker which can be used for monitoring, alerting, visualization of battery metrics.  This data can easily be integrated into popular platforms such as Home Assistant.
   -  Cell Balancing / Absorb Charge - The application supports the capability to perform periodic "Cell Balancing" charges which frequency is configurable by the user (i.e. every 3 days).  It does this by "tricking" the inverter into thinking the batteries are not yet charged to 100% for a user configurable amount of time. 
   -  Logging - the application logs periodic key data to log files locally on the Raspberry PI
 
-# Home Assistant Dashboard Example:
-  -  ![image](https://github.com/user-attachments/assets/aed18531-8435-414c-a9ec-40b45485453f)
+### Home Assistant dashboard example:
+
+![image](https://github.com/user-attachments/assets/aed18531-8435-414c-a9ec-40b45485453f)
+
+----------
+
+## Requirements
+
+  - Discover AES Batteries with a Lynk II Gateway - The application has been tested with the Discover AES Rackmount batteries and a Lynx II gateway but should work with any Discover AES battery.
+  - A Raspberry PI 3B, 4 or 5 - preferrably with at least 4GB memory.  The application paired with an MQTT broker do not use much resource (memory or CPU) on the Raspberry PI.  However, I find the 2GB models to make simple desktop browsing and other tasks performance / reliability intolerable.
+  - A 2 port CAN hat for the Raspberry PI.  I have used a [Waveshare 2-Channel CAN FD HAT](https://www.waveshare.com/2-ch-can-fd-hat.htm) with great success.
+  - A Pylontech protocol compatible inverter.   I personnally use the Midnite MN15-12KW-AIO All in One inverter.
+  - Cabling for connecting the Raspberry PI to the Lynk II and the Inverter.   I opted to wire the CAN Hat to a dual port RJ45 wall adapter and use standard CAT 5/6 cables to connect to the Lynk II gateway for a clean cabling approach.
+
+Optional:
+  - a touch screen for your Raspberry PI.   I find it useful to have my Home Assistant dashboards always displayed near my inverter / batteries.
+
+----------
+
+## How to Use
+
+### Installing the Raspberry PI
+
+#### Install the CAN Hat
+Note that CAN hats do not typically fit in standard Raspberry PI cases.  As I use a touchscreen display on my Raspberry PI 5, I have no need for a case as it mounts on the back of the display.  If you choose to go "headless", there are some larger cases available.  
+
+I use the [Waveshare 2-Channel CAN FD HAT](https://www.waveshare.com/2-ch-can-fd-hat.htm).  I highly recommend installing the CAN adapter standoffs that come with the board to stablize and avoid putting pressure on the pins with pulling cables, etc.
+
+#### Configure the Raspberry PI OS
+_The instructions below start from a freshly imaged SD card for a Raspberry PI 5 with the "Raspberry Pi OS (64-Bit) --- Debian Bookworm" image and basic configuration completed (network, accounts, timezone, initial software updates, etc.)._
+
+
+### Configuring the Discover Lynk II gateway
+#### Jumper Settings
+#### Protocol Configuration
+### Connecting the CAN Hat to the Lynk II gateway
+### Connecting the CAN Hat to the Inverter
+
