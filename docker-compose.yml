@@ -1,6 +1,0 @@
-services:
-  discoverbms:
-    image: discoverbms
-    build:
-      context: .
-      dockerfile: ./Dockerfile
