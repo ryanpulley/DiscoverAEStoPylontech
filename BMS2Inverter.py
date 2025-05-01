@@ -76,9 +76,9 @@ Example:
   4-7   0000    0           0                   Reserved
 '''
 class BMSDiscoverSCBatteryCapacity ():
-   initialized = False;
-   batteryNominalCapacity = 0;
-   batteryRemainingCapacity = 0;
+   initialized = False
+   batteryNominalCapacity = 0
+   batteryRemainingCapacity = 0
 
    def decode(self, buffer):
       # Unpack 8 bytes (little endian)      
@@ -86,7 +86,7 @@ class BMSDiscoverSCBatteryCapacity ():
 
       self.batteryNominalCapacity = unpackedBuffer[0]
       self.batteryRemainingCapacity = unpackedBuffer[1]
-      self.initialized = True;
+      self.initialized = True
       
 '''
 BMS Battery Status (0x355)
@@ -101,9 +101,9 @@ Example:
   4-7   0000    0           0                   Reserved
 '''
 class BMSDiscoverSCBatteryStatus ():
-   initialized = False;
-   batteryStateOfCharge = 0;
-   batteryStateOfHealth = 0;
+   initialized = False
+   batteryStateOfCharge = 0
+   batteryStateOfHealth = 0
 
    def decode(self, buffer):
       # Unpack 8 bytes (little endian)      
@@ -111,7 +111,7 @@ class BMSDiscoverSCBatteryStatus ():
 
       self.batteryStateOfCharge = unpackedBuffer[0]
       self.batteryStateOfHealth = unpackedBuffer[1]
-      self.initialized = True;
+      self.initialized = True
 
 '''
 BMS Battery Measurements (0x356)
@@ -132,16 +132,32 @@ class BMSDiscoverSCBatteryMeasurements ():
    batteryCurrent = 0.0
    batteryTemperature = 0.0
    batteryTemperatureF = 0.0
+   lowVoltageWarning = 48.0
+   __lowVoltageCounter = 0
 
    def decode(self, buffer):
       # Unpack 8 bytes (little endian)      
       unpackedBuffer = struct.unpack("<HhhH", buffer) 
 
       self.batteryVoltage = unpackedBuffer[0]/10
+ 
+      #--occasionaly we see an erroneous low voltage reported by the lynk II (46.x) volts
+      #--which causes the Midnite AIO inverter to go to standby causing a 20-30 second outage
+      #--to mitigate, we will not report to the inverter unless it occurs 3 times consecutively
+      if (self.batteryVoltage <= self.lowVoltageWarning):
+         self.__lowVoltageCounter += 1
+         logger.warning("Low voltage reported by BMS: " + str(self.batteryVoltage) + ", occurence count:" + self.__lowVoltageCounter)
+         logger.warning("0x356 message: " + buffer)
+         if (self.__lowVoltageCounter < 3):
+            self.batteryVoltage = self.lowVoltageWarning + 0.1
+            logger.error("Low voltage reported by BMS over 3 times:" + str(self.batteryVoltage) + ", occurence count:" + self.__lowVoltageCounter)
+      else:
+         self.__lowVoltageCounter = 0
+
       self.batteryCurrent = unpackedBuffer[1]/10
       self.batteryTemperature = unpackedBuffer[2]/10
       self.batteryTemperatureF = (self.batteryTemperature * 9/5) +32
-      self.initialized = True;
+      self.initialized = True
 
 
 
@@ -758,6 +774,8 @@ def readBMS(runEvent,CANPort):
    BMSLynxFirmware = BMSDiscoverSCLynxFirmware ()
    BMSProtocolVersion = BMSDiscoverSCProtocolVersion ()
 
+   BMSBatteryMeasurements.lowVoltageWarning = LowVoltageWarningParam
+
    while runEvent.is_set():
       message = CANPort.recv()
       if message is not None:
@@ -803,7 +821,7 @@ def readBMS(runEvent,CANPort):
             BMSProtocolVersion.decode(message.data)
             #logger.debug('Read 0x373 - Battery Protocol Version: %s', BMSProtocolVersion.versionString)
          else:
-            logger.error ("reading unhandled message: " + str(message.arbitration_id))
+            logger.error ("reading unhandled message: " + str(message.arbitration_id) + ", message: " + message.data)
 #endregion
 
 #region ************ Inverter Writer *************
@@ -966,6 +984,7 @@ def main():
    global CellBalancingIntervalParam
    global CellBalancingHoldSOCParam
    global CellBalancingMinutesParam
+   global LowVoltageWarningParam
 
    global MQTTClient
 
@@ -1045,6 +1064,7 @@ if __name__ == "__main__":
    CellBalancingIntervalParam = config['cellbalancing']['interval-days']
    CellBalancingHoldSOCParam = config['cellbalancing']['hold-soc']
    CellBalancingMinutesParam = config['cellbalancing']['minutes']
+   LowVoltageWarningParam = config['BMS']['lowVoltageWarning']
     
    #start logger
    logFormat = '%(asctime)s %(message)s'
