@@ -25,6 +25,45 @@ import json
 import yaml
 import os
 import datetime
+import math
+
+
+#region ********** Metrics Class ************
+'''
+--------------------------------------
+Metrics Class
+--------------------------------------
+'''
+
+'''
+Service metrics classes
+'''
+class BMStoInverterMetrics ():
+   initialized = False
+   lastBMSRead = None
+   lastInverterWrite = None
+   lastHeartbeat = None
+   BMSBytesRead = 0
+   BMSBytesWritten = 0
+   InverterBytesWritten = 0
+   InverterBytesRead = 0
+
+
+   def friendlySize(self,bytes):
+      if bytes == 0:
+         return "0B"
+      sizeName = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+      i = int(math.floor(math.log(bytes, 1024)))
+      p = math.pow(1024, i)
+      s = round(bytes / p, 2)
+      return "%s%s" % (s, sizeName[i])
+
+   def millisecondsAgo(self,lastDate):
+      a = datetime.datetime.now() - lastDate
+      #return str(a.seconds)
+      return str(int(a.total_seconds() * 1000))
+      
+#endregion
 
 #region ********** BMS Classes **********
 '''
@@ -776,9 +815,18 @@ def readBMS(runEvent,CANPort):
 
    BMSBatteryMeasurements.lowVoltageWarning = LowVoltageWarningParam
 
+      
    while runEvent.is_set():
-      message = CANPort.recv()
+      # Check if active (ACTIVE=1, ERROR=3, PASSIVE=2)
+      if CANPort.state != can.BusState.ACTIVE:
+         logger.error('BMS CAN Port reports state of:' +str(CANPort.state))
+
+      message = CANPort.recv(timeout=5)
       if message is not None:
+         #update metrics
+         metrics.lastBMSRead = datetime.datetime.now()
+         metrics.BMSBytesRead += len(message.data)
+
          if message.arbitration_id == 0x35E:
             BMSManufacturer.decode(message.data)
             #logger.debug('Read 0x35E - Manufacturer: %s', BMSManufacturer.manufacturer)
@@ -822,6 +870,8 @@ def readBMS(runEvent,CANPort):
             #logger.debug('Read 0x373 - Battery Protocol Version: %s', BMSProtocolVersion.versionString)
          else:
             logger.error ("reading unhandled message: " + str(message.arbitration_id) + ", message: " + message.data)
+      else:
+         logger.warning ("time > 5 seconds to read CAN message from BMS")
 #endregion
 
 #region ************ Inverter Writer *************
@@ -846,28 +896,44 @@ def writeInverter (runEvent,CANPort, frequency):
       if (InvBatteryLimits.encode()):
          msg = can.Message(arbitration_id=InvBatteryLimits.frame, data=InvBatteryLimits.message,is_extended_id=False)
          CANPort.send(msg)
-         #sys.stdout.write('\r\033[0mBMS \033[31mInverter\033[0m')
-         #sys.stdout.flush()
+         #update metrics
+         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.InverterBytesWritten += len(msg.data)
       #0x355
       if (InvBatteryStatus.encode()):
          msg = can.Message(arbitration_id=InvBatteryStatus.frame, data=InvBatteryStatus.message, is_extended_id=False)
          CANPort.send(msg)
+         #update metrics
+         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.InverterBytesWritten += len(msg.data)
       # 0x356
       if (InvBatteryMeasurements.encode()):
          msg = can.Message(arbitration_id=InvBatteryMeasurements.frame, data=InvBatteryMeasurements.message, is_extended_id=False)
          CANPort.send(msg)
+         #update metrics
+         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.InverterBytesWritten += len(msg.data)
       # 0x35C --- #to-do need to find some may to control full charge and maybe force charge flags
       if (InvBatteryChargeFlags.encode()):
          msg = can.Message(arbitration_id=InvBatteryChargeFlags.frame, data=InvBatteryChargeFlags.message, is_extended_id=False)
          CANPort.send(msg)
+         #update metrics
+         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.InverterBytesWritten += len(msg.data)
       # 0x35E
       if (InvBatteryManufacturer.encode()):
          msg = can.Message(arbitration_id=InvBatteryManufacturer.frame, data=InvBatteryManufacturer.message, is_extended_id=False) 
          CANPort.send(msg)
+         #update metrics
+         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.InverterBytesWritten += len(msg.data)
       # 0x359
       if (InvBatteryAlarms.encode()):
          msg = can.Message(arbitration_id=InvBatteryAlarms.frame, data=InvBatteryAlarms.message, is_extended_id=False) 
          CANPort.send(msg)
+         #update metrics
+         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.InverterBytesWritten += len(msg.data)
       sleep(frequency)      
 #endregion
 
@@ -884,6 +950,11 @@ def inverterHeartbeat (runEvent,InverterCANPort, BMSCANPort):
       message = InverterCANPort.recv()
       if message is not None:
          BMSCANPort.send(message)
+         #update metrics
+         metrics.lastHeartbeat = datetime.datetime.now()
+         metrics.InverterBytesRead += len(message.data)
+         metrics.BMSBytesWritten += len(message.data)
+
 #endregion
 
 #region ************* Periodic Info Messages **************
@@ -912,8 +983,22 @@ def infoMessage(runEvent,frequency):
                          'SOC to Inverter: ' +
                          str(InverterFakeoutSOC))  
          else:
-            logger.info ('Cell balancing inactive')    
+            logger.info ('Cell balancing inactive')  
 
+      logger.info ('')
+      logger.info ('-   Latency (ms)   - -              Bytes              -')
+      logger.info ('BMS-R  BMS-W  Heart  BMS-R    BMS-W    Inv-R    Inv-W   ')
+      logger.info ('------ ------ ------ -------- -------- -------- --------')
+
+      logger.info (metrics.millisecondsAgo(metrics.lastBMSRead).ljust(6) + ' ' +
+                   metrics.millisecondsAgo(metrics.lastInverterWrite).ljust(6) + ' ' +
+                   metrics.millisecondsAgo(metrics.lastHeartbeat).ljust(6) + ' ' +
+                   metrics.friendlySize(metrics.BMSBytesRead).ljust(8) + ' ' +
+                   metrics.friendlySize(metrics.BMSBytesWritten).ljust(8) + ' ' +
+                   metrics.friendlySize(metrics.InverterBytesRead).ljust(8) + ' ' +
+                   metrics.friendlySize(metrics.InverterBytesWritten))
+      
+      
       sleep(frequency)
 #endregion
 
@@ -985,8 +1070,11 @@ def main():
    global CellBalancingHoldSOCParam
    global CellBalancingMinutesParam
    global LowVoltageWarningParam
+   global metrics
 
    global MQTTClient
+
+   metrics = BMStoInverterMetrics ()
 
    #start logger
    logFormat = '%(asctime)s %(message)s'
