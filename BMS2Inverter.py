@@ -21,11 +21,12 @@ from logging.handlers import TimedRotatingFileHandler
 import threading
 from time import sleep
 import json
-#import sys
+import sys
 import yaml
 import os
 import datetime
 import math
+import signal
 
 
 #region ********** Metrics Class ************
@@ -775,7 +776,8 @@ CAN Methods
 
 def openCANPort (CANChannel, CANBitrate):
    try:
-      CANPort = can.interface.Bus(interface='socketcan', channel=CANChannel, bitrate=CANBitrate)
+      #CANPort = can.interface.Bus(interface='socketcan', channel=CANChannel, bitrate=CANBitrate)
+      CANPort = can.ThreadSafeBus(interface='socketcan', channel=CANChannel, bitrate=CANBitrate)
       return CANPort
    except:
       logger.error('Error: Failed to open CAN Port, exiting')
@@ -986,7 +988,7 @@ def infoMessage(runEvent,frequency):
             logger.info ('Cell balancing inactive')  
 
       logger.info ('')
-      logger.info ('-   Latency (ms)   - -              Bytes              -')
+      logger.info ('-  Last R/W (ms)   - -              Bytes              -')
       logger.info ('BMS-R  BMS-W  Heart  BMS-R    BMS-W    Inv-R    Inv-W   ')
       logger.info ('------ ------ ------ -------- -------- -------- --------')
 
@@ -1060,7 +1062,10 @@ def MQTTWriter (runEvent, frequency):
 # endregion
 
 #region ************** main **************
+
+
 def main():
+   
    global BMSCANPortParam
    global BMSCANPortRateParam
    global InverterCANPortParam
@@ -1115,8 +1120,9 @@ def main():
       while True:
         sleep(.1)
    except KeyboardInterrupt:
-      logger.info('')
-      logger.info('Interrupt received, closing threads')
+      logger.info('Keyboard Interrupt Received')
+   finally:
+      logger.info('Closing Threads')
       runEvent.clear()
       readBMSThread.join()
       MQTTWriterThread.join()

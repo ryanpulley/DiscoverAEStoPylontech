@@ -1,0 +1,15 @@
+[Unit]
+Description=BMS CAN Startup Service
+After=bms-can.service
+Wants=network-online.target
+
+[Service]
+Restart=always
+RestartSec=10
+ExecStart=/home/ryanpulley/Project/DiscoverBMS/start.sh
+WorkingDirectory=/home/ryanpulley/Project/DiscoverBMS
+User=ryanpulley
+
+[Install]
+WantedBy=multi-user.target
+

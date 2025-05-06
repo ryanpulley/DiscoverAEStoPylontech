@@ -1,0 +1,13 @@
+[Unit]
+Description=BMS CAN Startup Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/home/ryanpulley/startcan.sh
+WorkingDirectory=/home/ryanpulley
+User=ryanpulley
+
+[Install]
+WantedBy=multi-user.target
+
