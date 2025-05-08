@@ -1026,50 +1026,42 @@ def MQTTConnect (hostname, port):
 def MQTTWriter (runEvent, frequency):
    while runEvent.is_set():
 
-      if 'InvBatteryStatus' in globals():
-         InverterFakeoutSOC = InvBatteryStatus.InverterFakeoutSOC
-         CellBalancingRemainingTime = InvBatteryStatus.CellBalancingRemainingTime
-         IsCellBalancingActive = InvBatteryStatus.IsCellBalancingActive
-      else:
-         InverterFakeoutSOC = -1
-         CellBalancingRemainingTime = -1
-         IsCellBalancingActive = False
-         
-      data= {
-         "lowBatteryCutOutVoltage": BMSBatteryLimits.lowBatteryCutOutVoltage,
-         "requestedChargeCurrent": BMSBatteryLimits.requestedChargeCurrent,
-         "requestedChargeVoltage": BMSBatteryLimits.requestedChargeVoltage,
-         "requestedMaximumDischargeCurrent": BMSBatteryLimits.requestedMaximumDischargeCurrent,
-         "stateOfCharge": BMSBatteryStatus.batteryStateOfCharge,
-         "inverterFakeoutSOC": InverterFakeoutSOC,
-         "cellBalancingRemainingTime": CellBalancingRemainingTime,
-         "isCellBalancingActive": IsCellBalancingActive,
-         "stateOfHealth": BMSBatteryStatus.batteryStateOfHealth,
-         "batteryNominalCapacity":BMSBatteryCapacity.batteryNominalCapacity,
-         "batteryRemainingCapacity":BMSBatteryCapacity.batteryRemainingCapacity,
-         "batteryCurrent":BMSBatteryMeasurements.batteryCurrent,
-         "batteryTemperature":BMSBatteryMeasurements.batteryTemperature,
-         "batteryTemperatureF":BMSBatteryMeasurements.batteryTemperatureF,
-         "batteryVoltage":BMSBatteryMeasurements.batteryVoltage,
-         "manufacturer":BMSManufacturer.manufacturer,
-         "lynxFirmwareVersion":BMSLynxFirmware.versionString,
-         "BMSModelNameUpper":BMSModelNameUpper.modelName,
-         "BMSModelNameLower":BMSModelNameLower.modelName,
-         "protocolVersion":BMSProtocolVersion.versionString,
-         "BMSLastReadTime":metrics.lastBMSRead.isoformat(),
-         "InverterLastWriteTime":metrics.lastInverterWrite.isoformat(),
-         "LastHeartbeatTime":metrics.lastHeartbeat.isoformat(),
-         "BMSLastReadMSAgo": metrics.millisecondsAgo(metrics.lastBMSRead),
-         "InverterLastWriteMSAgo": metrics.millisecondsAgo(metrics.lastInverterWrite),
-         "LastHeartbeatMSAgo": metrics.millisecondsAgo(metrics.lastHeartbeat),
-         "BMSBytesRead":metrics.BMSBytesRead,
-         "BMSBytesWritten":metrics.BMSBytesWritten,
-         "InverterReadBytes":metrics.InverterBytesRead,
-         "InverterWriteBytes":metrics.InverterBytesWritten
+      if 'InvBatteryStatus' in globals():       
+         data= {
+            "lowBatteryCutOutVoltage": BMSBatteryLimits.lowBatteryCutOutVoltage,
+            "requestedChargeCurrent": BMSBatteryLimits.requestedChargeCurrent,
+            "requestedChargeVoltage": BMSBatteryLimits.requestedChargeVoltage,
+            "requestedMaximumDischargeCurrent": BMSBatteryLimits.requestedMaximumDischargeCurrent,
+            "stateOfCharge": BMSBatteryStatus.batteryStateOfCharge,
+            "inverterFakeoutSOC": InvBatteryStatus.InverterFakeoutSOC,
+            "cellBalancingRemainingTime": InvBatteryStatus.CellBalancingRemainingTime,
+            "isCellBalancingActive": InvBatteryStatus.IsCellBalancingActive,
+            "stateOfHealth": BMSBatteryStatus.batteryStateOfHealth,
+            "batteryNominalCapacity":BMSBatteryCapacity.batteryNominalCapacity,
+            "batteryRemainingCapacity":BMSBatteryCapacity.batteryRemainingCapacity,
+            "batteryCurrent":BMSBatteryMeasurements.batteryCurrent,
+            "batteryTemperature":BMSBatteryMeasurements.batteryTemperature,
+            "batteryTemperatureF":BMSBatteryMeasurements.batteryTemperatureF,
+            "batteryVoltage":BMSBatteryMeasurements.batteryVoltage,
+            "manufacturer":BMSManufacturer.manufacturer,
+            "lynxFirmwareVersion":BMSLynxFirmware.versionString,
+            "BMSModelNameUpper":BMSModelNameUpper.modelName,
+            "BMSModelNameLower":BMSModelNameLower.modelName,
+            "protocolVersion":BMSProtocolVersion.versionString,
+            "BMSLastReadTime":metrics.lastBMSRead.isoformat(),
+            "InverterLastWriteTime":metrics.lastInverterWrite.isoformat(),
+            "LastHeartbeatTime":metrics.lastHeartbeat.isoformat(),
+            "BMSLastReadMSAgo": metrics.millisecondsAgo(metrics.lastBMSRead),
+            "InverterLastWriteMSAgo": metrics.millisecondsAgo(metrics.lastInverterWrite),
+            "LastHeartbeatMSAgo": metrics.millisecondsAgo(metrics.lastHeartbeat),
+            "BMSBytesRead":metrics.BMSBytesRead,
+            "BMSBytesWritten":metrics.BMSBytesWritten,
+            "InverterReadBytes":metrics.InverterBytesRead,
+            "InverterWriteBytes":metrics.InverterBytesWritten
 
-         }
-      (rc, mid) = MQTTClient.publish("DiscoverStorage", json.dumps(data, indent=2), qos=2)
-
+            }
+         (rc, mid) = MQTTClient.publish("DiscoverStorage", json.dumps(data, indent=2), qos=2)
+    
       sleep(frequency)
 # endregion
 
