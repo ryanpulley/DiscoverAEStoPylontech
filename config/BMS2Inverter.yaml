@@ -9,6 +9,9 @@ cellbalancing:
   interval-days: 1
   hold-soc: 99
   minutes: 35
+mqtt:
+  host: 10.10.30.10
+  port: 1883
 logging:
   loglevel: info
   logfile: /home/ryanpulley/Project/DiscoverBMS/log/BMS2Inverter.log

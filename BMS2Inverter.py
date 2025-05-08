@@ -24,7 +24,7 @@ import json
 import sys
 import yaml
 import os
-import datetime
+from datetime import datetime
 import math
 import signal
 
@@ -41,9 +41,9 @@ Service metrics classes
 '''
 class BMStoInverterMetrics ():
    initialized = False
-   lastBMSRead = None
-   lastInverterWrite = None
-   lastHeartbeat = None
+   lastBMSRead = datetime.now()
+   lastInverterWrite = datetime.now()
+   lastHeartbeat = datetime.now()
    BMSBytesRead = 0
    BMSBytesWritten = 0
    InverterBytesWritten = 0
@@ -60,9 +60,12 @@ class BMStoInverterMetrics ():
       return "%s%s" % (s, sizeName[i])
 
    def millisecondsAgo(self,lastDate):
-      a = datetime.datetime.now() - lastDate
-      #return str(a.seconds)
-      return str(int(a.total_seconds() * 1000))
+      if lastDate != None:
+         a = datetime.now() - lastDate
+         #return str(a.seconds)
+         return str(int(a.total_seconds() * 1000))
+      else:
+         return -1
       
 #endregion
 
@@ -690,30 +693,30 @@ number for a defined period of time to get an "Absorb" charge.
 '''
 class CellBalancing ():
    __lastSOC = 0
-   __timerStartTime = datetime.datetime.now()
+   __timerStartTime = datetime.now()
    holdSOC = 0                #SOC to hold at when actual SOC is greater than this value
    cellBalancingInterval = 1  #day interval to perform cell balancing
    cellBalancingMinutes = 30  #number of minutes to balance
    isCellBalancingActive = False
    remainingTime = 0
-   lastBalanceDate = datetime.datetime.now()
+   lastBalanceDate = datetime.now()
 
    def __init__(self):
       #read date marker file
       try: 
          with open("cellbalance.marker", 'r') as file:
             #lastBalanceDateStr = file.readline ()
-            self.lastBalanceDate = datetime.datetime.strptime(file.readline(),"%Y-%m-%d")
+            self.lastBalanceDate = datetime.strptime(file.readline(),"%Y-%m-%d")
             logger.debug("Read cellbalance.marker with:" +self.lastBalanceDate.strftime("%Y-%m-%d"))      
       except FileNotFoundError:
          with open("cellbalance.marker", "w") as file:
             #for new file, start with the cell balancing today by writing last balance back #days in config
-            self.lastBalanceDate = datetime.datetime.now() - datetime.timedelta(days=self.cellBalancingInterval)
+            self.lastBalanceDate = datetime.now() - datetime.timedelta(days=self.cellBalancingInterval)
             file.write(self.lastBalanceDate.strftime("%Y-%m-%d"))
             logger.debug("Wrote cellbalance.marker with:" +self.lastBalanceDate.strftime("%Y-%m-%d"))
 
    def __evaluateDay (self):
-      if datetime.datetime.now() > self.lastBalanceDate + datetime.timedelta(days=self.cellBalancingInterval):
+      if datetime.now() > self.lastBalanceDate + datetime.timedelta(days=self.cellBalancingInterval):
          logger.debug ('evaluated day for allowed run as True')
          return True
       else:
@@ -721,20 +724,20 @@ class CellBalancing ():
          return False
    
    def __startTimer (self):
-      self.__timerStartTime = datetime.datetime.now()
+      self.__timerStartTime = datetime.now()
       self.isCellBalancingActive = True
       logger.debug ('starting cell balance timer:' +self.__timerStartTime.strftime("%Y-%m-%d %H:%M:%S"))
 
    def __stopTimer (self):
       #write marker file with successful completion of cell balancing
       with open("cellbalance.marker", "w") as file:
-         self.lastBalanceDate = datetime.datetime.now()
+         self.lastBalanceDate = datetime.now()
          file.write(self.lastBalanceDate.strftime("%Y-%m-%d"))
       self.isCellBalancingActive = False
       logger.debug ('stopping cell balance timer, wrote marker:' +self.lastBalanceDate.strftime("%Y-%m-%d"))
 
    def __remainingTime (self):
-      elapsedTime = datetime.datetime.now() - self.__timerStartTime
+      elapsedTime = datetime.now() - self.__timerStartTime
       logger.debug ('setting remaining time:' + str((self.cellBalancingMinutes*60)-elapsedTime.seconds))
       return (self.cellBalancingMinutes * 60) - elapsedTime.seconds
 
@@ -826,7 +829,7 @@ def readBMS(runEvent,CANPort):
       message = CANPort.recv(timeout=5)
       if message is not None:
          #update metrics
-         metrics.lastBMSRead = datetime.datetime.now()
+         metrics.lastBMSRead = datetime.now()
          metrics.BMSBytesRead += len(message.data)
 
          if message.arbitration_id == 0x35E:
@@ -899,42 +902,42 @@ def writeInverter (runEvent,CANPort, frequency):
          msg = can.Message(arbitration_id=InvBatteryLimits.frame, data=InvBatteryLimits.message,is_extended_id=False)
          CANPort.send(msg)
          #update metrics
-         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.lastInverterWrite = datetime.now()
          metrics.InverterBytesWritten += len(msg.data)
       #0x355
       if (InvBatteryStatus.encode()):
          msg = can.Message(arbitration_id=InvBatteryStatus.frame, data=InvBatteryStatus.message, is_extended_id=False)
          CANPort.send(msg)
          #update metrics
-         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.lastInverterWrite = datetime.now()
          metrics.InverterBytesWritten += len(msg.data)
       # 0x356
       if (InvBatteryMeasurements.encode()):
          msg = can.Message(arbitration_id=InvBatteryMeasurements.frame, data=InvBatteryMeasurements.message, is_extended_id=False)
          CANPort.send(msg)
          #update metrics
-         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.lastInverterWrite = datetime.now()
          metrics.InverterBytesWritten += len(msg.data)
       # 0x35C --- #to-do need to find some may to control full charge and maybe force charge flags
       if (InvBatteryChargeFlags.encode()):
          msg = can.Message(arbitration_id=InvBatteryChargeFlags.frame, data=InvBatteryChargeFlags.message, is_extended_id=False)
          CANPort.send(msg)
          #update metrics
-         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.lastInverterWrite = datetime.now()
          metrics.InverterBytesWritten += len(msg.data)
       # 0x35E
       if (InvBatteryManufacturer.encode()):
          msg = can.Message(arbitration_id=InvBatteryManufacturer.frame, data=InvBatteryManufacturer.message, is_extended_id=False) 
          CANPort.send(msg)
          #update metrics
-         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.lastInverterWrite = datetime.now()
          metrics.InverterBytesWritten += len(msg.data)
       # 0x359
       if (InvBatteryAlarms.encode()):
          msg = can.Message(arbitration_id=InvBatteryAlarms.frame, data=InvBatteryAlarms.message, is_extended_id=False) 
          CANPort.send(msg)
          #update metrics
-         metrics.lastInverterWrite = datetime.datetime.now()
+         metrics.lastInverterWrite = datetime.now()
          metrics.InverterBytesWritten += len(msg.data)
       sleep(frequency)      
 #endregion
@@ -953,7 +956,7 @@ def inverterHeartbeat (runEvent,InverterCANPort, BMSCANPort):
       if message is not None:
          BMSCANPort.send(message)
          #update metrics
-         metrics.lastHeartbeat = datetime.datetime.now()
+         metrics.lastHeartbeat = datetime.now()
          metrics.InverterBytesRead += len(message.data)
          metrics.BMSBytesWritten += len(message.data)
 
@@ -1054,7 +1057,18 @@ def MQTTWriter (runEvent, frequency):
          "lynxFirmwareVersion":BMSLynxFirmware.versionString,
          "BMSModelNameUpper":BMSModelNameUpper.modelName,
          "BMSModelNameLower":BMSModelNameLower.modelName,
-         "protocolVersion":BMSProtocolVersion.versionString
+         "protocolVersion":BMSProtocolVersion.versionString,
+         "BMSLastReadTime":metrics.lastBMSRead.isoformat(),
+         "InverterLastWriteTime":metrics.lastInverterWrite.isoformat(),
+         "LastHeartbeatTime":metrics.lastHeartbeat.isoformat(),
+         "BMSLastReadMSAgo": metrics.millisecondsAgo(metrics.lastBMSRead),
+         "InverterLastWriteMSAgo": metrics.millisecondsAgo(metrics.lastInverterWrite),
+         "LastHeartbeatMSAgo": metrics.millisecondsAgo(metrics.lastHeartbeat),
+         "BMSBytesRead":metrics.BMSBytesRead,
+         "BMSBytesWritten":metrics.BMSBytesWritten,
+         "InverterReadBytes":metrics.InverterBytesRead,
+         "InverterWriteBytes":metrics.InverterBytesWritten
+
          }
       (rc, mid) = MQTTClient.publish("DiscoverStorage", json.dumps(data, indent=2), qos=2)
 
@@ -1063,34 +1077,13 @@ def MQTTWriter (runEvent, frequency):
 
 #region ************** main **************
 
-
-def main():
-   
-   global BMSCANPortParam
-   global BMSCANPortRateParam
-   global InverterCANPortParam
-   global InverterCANPortRateParam
-   global LogLevelParam
-   global CellBalancingIntervalParam
-   global CellBalancingHoldSOCParam
-   global CellBalancingMinutesParam
-   global LowVoltageWarningParam
-   global metrics
-
-   global MQTTClient
-
-   metrics = BMStoInverterMetrics ()
-
-   #start logger
-   logFormat = '%(asctime)s %(message)s'
-   logging.basicConfig(format=logFormat)
-   logger = logging.getLogger()
-   logger.setLevel(logging.DEBUG)
-
-   BMSCANPort = openCANPort (BMSCANPortParam,BMSCANPortRateParam) 
-   InverterCANPort = openCANPort (InverterCANPortParam, InverterCANPortRateParam)
-
-   MQTTClient = MQTTConnect("10.10.30.10", 1883)  #to-do paramaterize and config
+def startThreads ():
+   global runEvent
+   global readBMSThread
+   global MQTTWriterThread
+   global writeInverterThread
+   global inverterHeartbeatThread
+   global infoMessageThread
 
    runEvent = threading.Event()
    runEvent.set()
@@ -1115,6 +1108,41 @@ def main():
    sleep (1)
    infoMessageThread = threading.Thread(target=infoMessage, args=[runEvent,10])
    infoMessageThread.start ()
+
+def main():
+   global BMSCANPortParam
+   global BMSCANPortRateParam
+   global InverterCANPortParam
+   global InverterCANPortRateParam
+   global LogLevelParam
+   global CellBalancingIntervalParam
+   global CellBalancingHoldSOCParam
+   global CellBalancingMinutesParam
+   global LowVoltageWarningParam
+   global MQTTPortParam
+   global MQTTHostParam
+   global metrics
+
+   global MQTTClient
+
+   global BMSCANPort
+   global InverterCANPort
+
+   metrics = BMStoInverterMetrics ()
+
+   #start logger
+   logFormat = '%(asctime)s %(message)s'
+   logging.basicConfig(format=logFormat)
+   logger = logging.getLogger()
+   logger.setLevel(logging.DEBUG)
+
+   BMSCANPort = openCANPort (BMSCANPortParam,BMSCANPortRateParam) 
+   InverterCANPort = openCANPort (InverterCANPortParam, InverterCANPortRateParam)
+
+   MQTTClient = MQTTConnect(MQTTHostParam, MQTTPortParam)
+
+   startThreads()
+
 
    try:
       while True:
@@ -1159,6 +1187,8 @@ if __name__ == "__main__":
    CellBalancingHoldSOCParam = config['cellbalancing']['hold-soc']
    CellBalancingMinutesParam = config['cellbalancing']['minutes']
    LowVoltageWarningParam = config['BMS']['lowVoltageWarning']
+   MQTTHostParam = config['mqtt']['host']
+   MQTTPortParam = config['mqtt']['port']
     
    #start logger
    logFormat = '%(asctime)s %(message)s'
