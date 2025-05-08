@@ -2,6 +2,7 @@ BMS:
   port: can0
   portrate: 250000
   lowVoltageWarning: 48.5
+  readtimeout: 10000
 inverter:
   port: can1
   portrate: 500000

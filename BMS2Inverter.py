@@ -21,12 +21,10 @@ from logging.handlers import TimedRotatingFileHandler
 import threading
 from time import sleep
 import json
-import sys
 import yaml
 import os
 from datetime import datetime
 import math
-import signal
 
 
 #region ********** Metrics Class ************
@@ -63,7 +61,7 @@ class BMStoInverterMetrics ():
       if lastDate != None:
          a = datetime.now() - lastDate
          #return str(a.seconds)
-         return str(int(a.total_seconds() * 1000))
+         return int(a.total_seconds() * 1000)
       else:
          return -1
       
@@ -995,9 +993,9 @@ def infoMessage(runEvent,frequency):
       logger.info ('BMS-R  BMS-W  Heart  BMS-R    BMS-W    Inv-R    Inv-W   ')
       logger.info ('------ ------ ------ -------- -------- -------- --------')
 
-      logger.info (metrics.millisecondsAgo(metrics.lastBMSRead).ljust(6) + ' ' +
-                   metrics.millisecondsAgo(metrics.lastInverterWrite).ljust(6) + ' ' +
-                   metrics.millisecondsAgo(metrics.lastHeartbeat).ljust(6) + ' ' +
+      logger.info (str(metrics.millisecondsAgo(metrics.lastBMSRead)).ljust(6) + ' ' +
+                   str(metrics.millisecondsAgo(metrics.lastInverterWrite)).ljust(6) + ' ' +
+                   str(metrics.millisecondsAgo(metrics.lastHeartbeat)).ljust(6) + ' ' +
                    metrics.friendlySize(metrics.BMSBytesRead).ljust(8) + ' ' +
                    metrics.friendlySize(metrics.BMSBytesWritten).ljust(8) + ' ' +
                    metrics.friendlySize(metrics.InverterBytesRead).ljust(8) + ' ' +
@@ -1084,6 +1082,12 @@ def startThreads ():
    global writeInverterThread
    global inverterHeartbeatThread
    global infoMessageThread
+   global BMSCANPort
+   global InverterCANPort
+
+   logger.info ('Starting program threads...')
+   BMSCANPort = openCANPort (BMSCANPortParam,BMSCANPortRateParam) 
+   InverterCANPort = openCANPort (InverterCANPortParam, InverterCANPortRateParam)
 
    runEvent = threading.Event()
    runEvent.set()
@@ -1109,9 +1113,28 @@ def startThreads ():
    infoMessageThread = threading.Thread(target=infoMessage, args=[runEvent,10])
    infoMessageThread.start ()
 
+def stopThreads():
+   logger.info ('Stopping program threads...')
+   runEvent.clear()
+   readBMSThread.join()
+   MQTTWriterThread.join()
+   writeInverterThread.join()
+   infoMessageThread.join()
+   inverterHeartbeatThread.join()
+      
+   BMSCANPort.shutdown()
+   InverterCANPort.shutdown()
+
+def watchDog():
+   if metrics.millisecondsAgo(metrics.lastBMSRead) > BMSReadTimeoutParam:
+      return False
+   else:
+      return True
+   
 def main():
    global BMSCANPortParam
    global BMSCANPortRateParam
+   global BMSReadTimeoutParam
    global InverterCANPortParam
    global InverterCANPortRateParam
    global LogLevelParam
@@ -1125,9 +1148,6 @@ def main():
 
    global MQTTClient
 
-   global BMSCANPort
-   global InverterCANPort
-
    metrics = BMStoInverterMetrics ()
 
    #start logger
@@ -1136,30 +1156,24 @@ def main():
    logger = logging.getLogger()
    logger.setLevel(logging.DEBUG)
 
-   BMSCANPort = openCANPort (BMSCANPortParam,BMSCANPortRateParam) 
-   InverterCANPort = openCANPort (InverterCANPortParam, InverterCANPortRateParam)
-
    MQTTClient = MQTTConnect(MQTTHostParam, MQTTPortParam)
 
    startThreads()
 
 
    try:
+      #main loop with watchdog
       while True:
-        sleep(.1)
+        sleep(1)
+        #if watchdog failure, stop and restart CAN port and threads
+        if watchDog() == False:
+           logger.warning ('Watchdog determined excessive read times on BMS, restarting...')
+           stopThreads()
+           startThreads()
    except KeyboardInterrupt:
       logger.info('Keyboard Interrupt Received')
    finally:
-      logger.info('Closing Threads')
-      runEvent.clear()
-      readBMSThread.join()
-      MQTTWriterThread.join()
-      writeInverterThread.join()
-      infoMessageThread.join()
-      inverterHeartbeatThread.join()
-      
-      BMSCANPort.shutdown()
-      InverterCANPort.shutdown()
+      stopThreads()
       
 
 
@@ -1179,6 +1193,7 @@ if __name__ == "__main__":
 
    BMSCANPortParam = config["BMS"]["port"]
    BMSCANPortRateParam = config["BMS"]["portrate"]
+   BMSReadTimeoutParam = config['BMS']['readtimeout']
    InverterCANPortParam = config["inverter"]["port"]
    InverterCANPortRateParam = config["inverter"]["portrate"]
    LogLevelParam = config["logging"]["loglevel"]
