@@ -23,7 +23,7 @@ from time import sleep
 import json
 import yaml
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 
 
@@ -709,12 +709,12 @@ class CellBalancing ():
       except FileNotFoundError:
          with open("cellbalance.marker", "w") as file:
             #for new file, start with the cell balancing today by writing last balance back #days in config
-            self.lastBalanceDate = datetime.now() - datetime.timedelta(days=self.cellBalancingInterval)
+            self.lastBalanceDate = datetime.now() - timedelta(days=self.cellBalancingInterval)
             file.write(self.lastBalanceDate.strftime("%Y-%m-%d"))
             logger.debug("Wrote cellbalance.marker with:" +self.lastBalanceDate.strftime("%Y-%m-%d"))
 
    def __evaluateDay (self):
-      if datetime.now() > self.lastBalanceDate + datetime.timedelta(days=self.cellBalancingInterval):
+      if datetime.now() >= self.lastBalanceDate + timedelta(days=self.cellBalancingInterval):
          logger.debug ('evaluated day for allowed run as True')
          return True
       else:
@@ -1198,7 +1198,7 @@ if __name__ == "__main__":
    MQTTPortParam = config['mqtt']['port']
     
    #start logger
-   logFormat = '%(asctime)s %(message)s'
+   logFormat = '%(asctime)s %(levelname)s %(message)s'
    formatter = logging.Formatter(logFormat)
    logging.basicConfig(format=logFormat)
    logger = logging.getLogger(__name__)
