@@ -51,10 +51,26 @@ _The instructions below start from a freshly imaged SD card for a Raspberry PI 5
    a) On interfaces, enable SPI (required for the CAN Hat).  I also enable SSH and VNC so that I can remotely access the Raspberry PI.
    b) reboot
 
-2) From a terminal window, install required packages
+2) From a terminal window, download the install script into your home directory
 
-  ```sudo apt install can-utils mosquitto mosquitto-clients```
+  ```curl -s -O https://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@raw.githubusercontent.com/ryanpulley/DiscoverAEStoPylontech/refs/heads/main/install.sh```
 
+3) Run the install script as the user that you wish to install under
+
+  ```./install.sh```
+
+  This install script does the following:
+
+  1) enables the Waveshare CAN FD Hat firmware configs if not already enabled
+  2) Installs MQTT - Mosquitto and client (mosquitto, mosquitto-client)
+  3) Installs the CAN Utilities (can-utils)
+  4) Clones the DiscoverBMS repository to your Raspberry PI under the users home directory (~/DiscoverBMS)
+  5) Creates a Python Virtual Environment
+  6) Installs all Python packages required by the service
+  7) Creates a log directory in the DiscoverBMS directory for service logs
+  8) Creates systemd services for initializing the CAN ports and the DiscoverBMS service
+  9) Reloads the systemd daemon to recognize these new services
+  10) starts the systemd services
 
 ### Configuring the Discover Lynk II gateway
 #### Jumper Settings
