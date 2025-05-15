@@ -15,4 +15,4 @@ mqtt:
   port: 1883
 logging:
   loglevel: info
-  logfile: /home/ryanpulley/Project/DiscoverBMS/log/BMS2Inverter.log
+  logfile: log/BMS2Inverter.log
