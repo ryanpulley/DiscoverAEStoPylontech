@@ -55,22 +55,22 @@ _The instructions below start from a freshly imaged SD card for a Raspberry PI 5
 
   ```curl -s -O https://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@raw.githubusercontent.com/ryanpulley/DiscoverAEStoPylontech/refs/heads/main/install.sh```
 
-3) Run the install script as the user that you wish to install under
+3) Run the install script as the user that you wish to install the service as:
 
   ```./install.sh```
 
-  This install script does the following:
+  - This install script does the following:
 
-  1) enables the Waveshare CAN FD Hat firmware configs if not already enabled
-  2) Installs MQTT - Mosquitto and client (mosquitto, mosquitto-client)
-  3) Installs the CAN Utilities (can-utils)
-  4) Clones the DiscoverBMS repository to your Raspberry PI under the users home directory (~/DiscoverBMS)
-  5) Creates a Python Virtual Environment
-  6) Installs all Python packages required by the service
-  7) Creates a log directory in the DiscoverBMS directory for service logs
-  8) Creates systemd services for initializing the CAN ports and the DiscoverBMS service
-  9) Reloads the systemd daemon to recognize these new services
-  10) starts the systemd services
+    1) enables the Waveshare CAN FD Hat firmware configs if not already enabled
+    2) Installs MQTT - Mosquitto and client (mosquitto, mosquitto-client)
+    3) Installs the CAN Utilities (can-utils)
+    4) Clones the DiscoverBMS repository to your Raspberry PI under the users home directory (~/DiscoverBMS)
+    5) Creates a Python Virtual Environment
+    6) Installs all Python packages required by the service
+    7) Creates a log directory in the DiscoverBMS directory for service logs
+    8) Creates systemd services for initializing the CAN ports and the DiscoverBMS service
+    9) Reloads the systemd daemon to recognize these new services
+    10) starts the systemd services
 
 ### Configuring the Discover Lynk II gateway
 #### Jumper Settings
