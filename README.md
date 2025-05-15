@@ -30,7 +30,8 @@ A Raspberry PI with a dual port CAN adapter (CAN hat) are used with one port con
   - Cabling for connecting the Raspberry PI to the Lynk II and the Inverter.   I opted to wire the CAN Hat to a dual port RJ45 wall adapter and use standard CAT 5/6 cables to connect to the Lynk II gateway for a clean cabling approach.
 
 Optional:
-  - a touch screen for your Raspberry PI.   I find it useful to have my Home Assistant dashboards always displayed near my inverter / batteries.
+  - Home Assistant installation on your network.  The repository includes an example MQTT configuration for Home Assistant and sample dashboard.
+  - A touch screen for your Raspberry PI.   I find it useful to have my Home Assistant dashboards always displayed near my inverter / batteries.
 
 ----------
 
