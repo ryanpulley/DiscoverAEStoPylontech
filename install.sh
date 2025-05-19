@@ -56,6 +56,21 @@ fi
 echo "$(date) : installing mosquitto and CAN utilities"
 sudo apt install can-utils mosquitto mosquitto-clients
 
+# If directory exists, make a backup and restore config after clone
+if [ -d ${INSTALL_DIR} ]; then
+  echo "$(date) : Install directory exists, making backup"
+  if [ -d ${INSTALL_DIR}.backup ]; then
+    rm -fr ${INSTALL_DIR}.backup
+  fi
+  echo "$(date) : Backing up prior application directory from ${INSTALL_DIR} to ${INSTALL_DIR}.backup"
+  if cp -r ${INSTALL_DIR} $INSTALL_DIR.backup; then
+    rm -fr ${INSTALL_DIR}
+  else
+    echo "$(date): failure in making a backup of the current installation, exiting..."
+    exit 1
+  fi
+fi
+
 echo "$(date) : cloning DiscoverBMS repository to ${INSTALL_DIR}"
 # Clone the repository
 git clone $REPO_URL $INSTALL_DIR

@@ -7,7 +7,6 @@ Purpose:
     1) Listens to the Discover Serial CAN protocol 
     2) Transforms data into object model
     3) Outputs to MQTT protocol on topics
-
 Feature Details:
 '''
 
@@ -872,7 +871,7 @@ def readBMS(runEvent,CANPort):
             BMSProtocolVersion.decode(message.data)
             #logger.debug('Read 0x373 - Battery Protocol Version: %s', BMSProtocolVersion.versionString)
          else:
-            logger.error ("reading unhandled message: " + str(message.arbitration_id) + ", message: " + message.data)
+            logger.error ("reading unhandled message: " + str(message.arbitration_id) + ", message: " + str(message.data))
       else:
          logger.warning ("time > 5 seconds to read CAN message from BMS")
 #endregion

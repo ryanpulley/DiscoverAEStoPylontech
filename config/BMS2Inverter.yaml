@@ -7,7 +7,7 @@ inverter:
   port: can1
   portrate: 500000
 cellbalancing:
-  interval-days: 1
+  interval-days: 2
   hold-soc: 99
   minutes: 35
 mqtt:
