@@ -6,6 +6,7 @@ APP_NAME="DiscoverBMS"
 INSTALL_DIR=~/$APP_NAME
 OS_USER=`whoami`
 FIRMWARE_CONFIG_FILE=/boot/firmware/config.txt
+MOSQUITTO_CONFIG_FILE=/etc/mosquitto/mosquitto.conf
 
 
 # Function to search for a specific entry in a config file
@@ -37,6 +38,13 @@ dtoverlay=mcp251xfd,spi1-0,interrupt=24
 EOF
 }
 
+Mosquitto_config() {
+  config_file=$1
+  cat << EOF | sudo tee -a $1
+listener 1883 0.0.0.0
+allow_anonymous true
+EOF
+}
 
 echo "$(date) : searching for WaveShare CAN FD HAT configs"
 # Check WaveShare configs
@@ -55,6 +63,16 @@ fi
 
 echo "$(date) : installing mosquitto and CAN utilities"
 sudo apt install can-utils mosquitto mosquitto-clients
+
+# append configs to mosquitto to allow anonymous listener
+if search_config ${MOSQUITTO_CONFIG_FILE_CONFIG_FILE} "listener 1883 0.0.0.0"; then
+  echo "$(date) : Mosquitto configs found, skipping"
+else
+  echo "$(date) : Adding Mosquitto Configs"
+  Mosquitto_config ${MOSQUITTO_CONFIG_FILE}
+  sudo systemctl restart mosquitto
+fi
+
 
 # If directory exists, make a backup and restore config after clone
 if [ -d ${INSTALL_DIR} ]; then
