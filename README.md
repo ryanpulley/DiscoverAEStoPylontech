@@ -63,6 +63,7 @@ _The instructions below start from a freshly imaged SD card for a Raspberry PI 5
     - Enables the Waveshare CAN FD Hat firmware configs if not already enabled and reboots
     - Installs MQTT - Mosquitto and client (mosquitto, mosquitto-client)
     - Installs the CAN Utilities (can-utils)
+    - Configures Mosquitto (/etc/mosquitto/mosquitto.conf) for out of localhost listener
     - Makes a backup of the current service to [directory.backup]
     - Clones the DiscoverBMS repository to your Raspberry PI under the users home directory (~/DiscoverBMS)
     - Creates a Python Virtual Environment
