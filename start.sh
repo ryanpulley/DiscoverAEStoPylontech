@@ -1,2 +1,2 @@
 #!/bin/bash
-./.venv/bin/python ./BMS2Inverter.py
+./venv/bin/python ./BMS2Inverter.py
