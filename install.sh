@@ -65,7 +65,7 @@ echo "$(date) : installing mosquitto and CAN utilities"
 sudo apt install can-utils mosquitto mosquitto-clients
 
 # append configs to mosquitto to allow anonymous listener
-if search_config ${MOSQUITTO_CONFIG_FILE_CONFIG_FILE} "listener 1883 0.0.0.0"; then
+if search_config ${MOSQUITTO_CONFIG_FILE} "listener 1883 0.0.0.0"; then
   echo "$(date) : Mosquitto configs found, skipping"
 else
   echo "$(date) : Adding Mosquitto Configs"
