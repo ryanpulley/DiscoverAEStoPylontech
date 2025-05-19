@@ -75,7 +75,10 @@ _The instructions below start from a freshly imaged SD card for a Raspberry PI 5
 
 ### Configuring the Discover Lynk II gateway
 #### Jumper Settings
+
+![IMG_5085](https://github.com/user-attachments/assets/5b838254-d971-4284-8630-7972eed89352)
 #### Protocol Configuration
+
 
 You can configure the Discover Lynx II gateway with the Lynx Access windows application with a serial connection via a USB cable from a windows machine to the gateway.  Recently, Discover has enabled the ethernet connectivity from the Lynx II gateway (Lynx Firmware release 2.1+).  You can also configure the protocol from the Discover cloud app when registered and enabled.
 
