@@ -75,6 +75,7 @@ _The instructions below start from a freshly imaged SD card for a Raspberry PI 5
 
 ### Configuring the Discover Lynk II gateway
 #### Jumper Settings
+![IMG_5085](https://github.com/user-attachments/assets/43248775-edf4-469c-aa04-b6aff3ba7165)
 
 
 #### Protocol Configuration
