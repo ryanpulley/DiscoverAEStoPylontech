@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set variables
-REPO_URL="https://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@github.com/ryanpulley/DiscoverAEStoPylontech.git"
+REPO_URL="https://github.com/ryanpulley/DiscoverAEStoPylontech.git"
 APP_NAME="DiscoverBMS"
 INSTALL_DIR=~/$APP_NAME
 OS_USER=`whoami`
