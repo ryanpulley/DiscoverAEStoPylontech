@@ -11,7 +11,7 @@ cellbalancing:
   hold-soc: 99
   minutes: 35
 mqtt:
-  host: 10.10.30.10
+  host: localhost
   port: 1883
 logging:
   loglevel: info
