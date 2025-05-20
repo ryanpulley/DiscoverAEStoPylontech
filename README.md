@@ -37,6 +37,55 @@ Optional:
 
 ## How to Use
 
+### Configuring the Discover Lynk II gateway
+#### Jumper Settings
+
+On the Lynk II gateway, CAN signals (CAN H, CAN L, CAN GND) can be assigned to any PIN of the RJ-45 connector by adjusting the jumpers on the header board.  To do this, disconnect the Lynk II gateway from all devices and remove the cover by removing the 4 screws on the back of the gateway.  
+
+Set the jumpers in this way:
+
+![Lynx II Jumpers - Solark](https://github.com/user-attachments/assets/b6cd1baa-ae6b-4308-906f-f369159eb38c)
+
+#### Protocol Configuration
+
+
+You can configure the Discover Lynk II gateway with the Lynx Access windows application with a serial connection via a USB cable from a windows machine to the gateway.  Recently, Discover has enabled the ethernet connectivity from the Lynk II gateway (Lynk Firmware release 2.1+).  You can also configure the protocol from the Discover cloud app when registered and enabled.
+
+These instructions show how to configure from the Windows Lynx Access application.
+
+  1) Click on the "LYNK" item on the left hand side
+  2) Click on the "Settings" icon in the "CAN Settings" section 
+
+<img width="1135" alt="Screenshot 2025-05-20 at 9 09 12 AM" src="https://github.com/user-attachments/assets/e275911d-b2c7-4767-9822-6f1cf2097e68" />
+
+  3) Choose "Discover Serial CAN" for the closed loop protocol
+  4) Click the "Save" button
+    - The Lynk Gateway will apply the protocol change and reboot
+
+<img width="1143" alt="Screenshot 2025-05-20 at 9 09 58 AM" src="https://github.com/user-attachments/assets/aa79e262-7391-4a37-8d9d-3ee6dbb11037" />
+
+### Wiring the CAN Hat to the Lynk II gateway / Inverter
+
+I opted to use a 2 port RJ45 stick on wall adapter and attach it to my Raspberry Pi Screen.   This allows you to use standard Cat 5/6 cables to wire the CAN HAT to the Inverter.
+
+The CAN 0 port will connect to the Lynx Device and the CAN 1 port will connect to the Inverter.
+
+![IMG_5078](https://github.com/user-attachments/assets/5ddbf228-0c06-42d7-b3e1-5d0a3b26e8b4)
+
+For the Lynx II gateway port (CAN 0), the wiring to the adapter is as follows:
+
+  - CAN 0 CAN H - Pin 4 (BLUE)
+  - CAN 0 CAN L - Pin 5 (BLUE/WHITE)
+  - CAN 0 GND   - Pin 6 (GREEN)
+
+For the Inverter (CAN 1), please review the documentation for your inverter for proper pinouts.   For the Midnite MN15-12KW-AIO All in One inverter, the pinout is the same as the Lynx II gateway:
+
+  - CAN 0 CAN H - Pin 4 (BLUE)
+  - CAN 0 CAN L - Pin 5 (BLUE/WHITE)
+  - CAN 0 GND   - Pin 6 (GREEN)
+
+![AIO Wiring](https://github.com/user-attachments/assets/ef716f22-5e9b-4db4-898d-c561f9048e71)
+
 ### Installing the Raspberry PI
 
 #### Install the CAN Hat
@@ -44,7 +93,7 @@ Note that CAN hats do not typically fit in standard Raspberry PI cases.  As I us
 
 I use the [Waveshare 2-Channel CAN FD HAT](https://www.waveshare.com/2-ch-can-fd-hat.htm).  I highly recommend installing the CAN adapter standoffs that come with the board to stablize and avoid putting pressure on the pins with pulling cables, etc.
 
-#### Configure the Raspberry PI OS
+#### Install the Service
 _The instructions below start from a freshly imaged SD card for a Raspberry PI 5 with the "Raspberry Pi OS (64-Bit) --- Debian Bookworm" image and basic configuration completed (network, accounts, timezone, initial software updates, etc.)._
 
 
@@ -63,7 +112,7 @@ _The instructions below start from a freshly imaged SD card for a Raspberry PI 5
     - Enables the Waveshare CAN FD Hat firmware configs if not already enabled and reboots
     - Installs MQTT - Mosquitto and client (mosquitto, mosquitto-client)
     - Installs the CAN Utilities (can-utils)
-    - Configures Mosquitto (/etc/mosquitto/mosquitto.conf) for out of localhost listener
+    - Configures Mosquitto (/etc/mosquitto/mosquitto.conf) for a listener that can talk outside of the host
     - Makes a backup of the current service to [directory.backup]
     - Clones the DiscoverBMS repository to your Raspberry PI under the users home directory (~/DiscoverBMS)
     - Creates a Python Virtual Environment
@@ -73,19 +122,5 @@ _The instructions below start from a freshly imaged SD card for a Raspberry PI 5
     - Reloads the systemd daemon to recognize these new services
     - Starts the systemd services
 
-### Configuring the Discover Lynk II gateway
-#### Jumper Settings
 
-![IMG_5085](https://github.com/user-attachments/assets/c6b51693-8dff-4e2b-b98f-d0b24c7e935c)
-
-
-#### Protocol Configuration
-
-
-You can configure the Discover Lynx II gateway with the Lynx Access windows application with a serial connection via a USB cable from a windows machine to the gateway.  Recently, Discover has enabled the ethernet connectivity from the Lynx II gateway (Lynx Firmware release 2.1+).  You can also configure the protocol from the Discover cloud app when registered and enabled.
-
-These instructions show how to configure from the Windows Lynx Access application.
-
-### Connecting the CAN Hat to the Lynk II gateway
-### Connecting the CAN Hat to the Inverter
 
