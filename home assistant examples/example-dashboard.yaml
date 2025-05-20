@@ -1,0 +1,101 @@
+views:
+  - title: Home
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Battery
+            heading_style: title
+          - type: gauge
+            entity: sensor.battery_state_of_charge
+            needle: true
+            severity:
+              green: 50
+              yellow: 25
+              red: 0
+          - show_name: true
+            show_icon: true
+            show_state: true
+            type: glance
+            entities:
+              - entity: sensor.battery_current
+              - entity: sensor.battery_voltage
+              - entity: sensor.battery_battery_temperature_of
+              - entity: sensor.battery_low_battery_cutout_voltage
+              - entity: sensor.battery_battery_nominal_capacity
+              - entity: sensor.battery_battery_remaining_capacity
+              - entity: sensor.battery_requested_charge_current
+              - entity: sensor.battery_requested_charge_voltage
+              - entity: sensor.battery_requested_maximum_discharge_current
+              - entity: sensor.battery_state_of_health
+            columns: 2
+            state_color: false
+          - show_name: true
+            show_icon: false
+            show_state: true
+            type: glance
+            entities:
+              - entity: sensor.battery_cell_balancing_remaining_time
+              - entity: binary_sensor.battery_cell_balance_active
+            state_color: false
+          - type: history-graph
+            entities:
+              - entity: sensor.battery_current
+            hours_to_show: 4
+            title: Amps
+            logarithmic_scale: false
+          - type: history-graph
+            entities:
+              - entity: sensor.battery_voltage
+            hours_to_show: 4
+            title: Volts
+      - type: grid
+        cards:
+          - type: heading
+            heading: BMS to Inverter Bridge
+            heading_style: title
+          - type: tile
+            entity: sensor.battery_bms_last_read_timestamp
+            features_position: bottom
+            vertical: false
+            grid_options:
+              columns: 12
+              rows: 1
+          - type: tile
+            entity: sensor.battery_inverter_last_write_timestamp
+            features_position: bottom
+            vertical: false
+            grid_options:
+              columns: 12
+              rows: 1
+          - type: tile
+            entity: sensor.battery_bms_bytes_read
+            features_position: bottom
+            vertical: false
+            grid_options:
+              columns: 12
+              rows: 1
+          - type: tile
+            entity: sensor.battery_bms_bytes_written
+            features_position: bottom
+            vertical: false
+            grid_options:
+              columns: 12
+              rows: 1
+          - type: tile
+            entity: sensor.battery_inverter_bytes_read
+            features_position: bottom
+            vertical: false
+            grid_options:
+              columns: 12
+              rows: 1
+          - type: tile
+            entity: sensor.battery_inverter_bytes_written
+            features_position: bottom
+            vertical: false
+            grid_options:
+              columns: 12
+              rows: 1
+          - type: entities
+            entities:
+              - input_button.reboot_bms_rpi
