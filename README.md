@@ -37,7 +37,7 @@ Optional:
 
 ## How to Use
 
-Jump over to the Wiki(https://github.com/ryanpulley/DiscoverAEStoPylontech/wiki) (link at the top of this repository) for detailed instructions on how to use the service.
+Jump over to the [Wiki](https://github.com/ryanpulley/DiscoverAEStoPylontech/wiki) (link at the top of this repository) for detailed instructions on how to use the service.
 
 ----------
 
