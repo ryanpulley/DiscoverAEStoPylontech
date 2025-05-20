@@ -1,0 +1,235 @@
+   sensor:
+    - name: "State of Charge"
+      unique_id: "bms_packSOC"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.stateOfCharge }}"
+      device_class: battery
+      unit_of_measurement: "%"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"
+    - name: "Current"
+      unique_id: "bms_packCurrent"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.batteryCurrent }}"
+      device_class: current
+      unit_of_measurement: "A"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"
+    - name: "Voltage"
+      unique_id: "bms_packVoltage"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.batteryVoltage }}"
+      device_class: voltage
+      unit_of_measurement: "V"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"       
+    - name: "Requested Charge Current"
+      unique_id: "bms_requestedChargeCurrent"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.requestedChargeCurrent }}"
+      device_class: current
+      unit_of_measurement: "A"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"       
+    - name: "Requested Charge Voltage"
+      unique_id: "bms_requestedChargeVoltage"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.requestedChargeVoltage }}"
+      device_class: voltage
+      unit_of_measurement: "V"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"  
+    - name: "Requested Maximum Discharge Current"
+      unique_id: "bms_requestedMaximumDischargeCurrent"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.requestedMaximumDischargeCurrent }}"
+      device_class: current
+      unit_of_measurement: "A"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"  
+    - name: "Low Cutout Voltage"
+      unique_id: "bms_lowBatteryCutOutVoltage"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.lowBatteryCutOutVoltage }}"
+      device_class: voltage
+      unit_of_measurement: "V"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"  
+    - name: "State of Health"
+      unique_id: "bms_stateOfHealth"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.stateOfHealth }}"
+      device_class: battery
+      unit_of_measurement: "%"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"  
+    - name: "Nominal Capacity"
+      unique_id: "bms_batteryNominalCapacity"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ ((value_json.batteryNominalCapacity * value_json.batteryVoltage) / 1000) | round(2) }}"
+      device_class: energy
+      unit_of_measurement: "kWh"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"  
+    - name: "Remaining Capacity"
+      unique_id: "bms_batteryRemainingCapacity"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ ((value_json.batteryRemainingCapacity * value_json.batteryVoltage) / 1000) | round(2) }}"
+      device_class: energy
+      unit_of_measurement: "kWh"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"  
+    - name: "Temperature ºC"
+      unique_id: "bms_batteryTemperatureC"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.batteryTemperature }}"
+      device_class: temperature
+      unit_of_measurement: "ºC"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah" 
+    - name: "Temperature ºF"
+      unique_id: "bms_batteryTemperatureF"
+      state_topic: "DiscoverStorage"
+      state_class: total
+      value_template: "{{ value_json.batteryTemperatureF }}"
+      device_class: temperature
+      unit_of_measurement: "ºF"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah" 
+    - name: "BMS Last Read Timestamp"
+      unique_id: "bms_LastRead"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.BMSLastReadTime }}"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah" 
+    - name: "Inverter Last Write Timestamp"
+      unique_id: "bms_LastWrite"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.InverterLastWriteTime }}"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"
+    - name: "Inverter Last Heartbeat Timestamp"
+      unique_id: "bms_LastHeartBeat"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.LastHeartbeatTime }}"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"    
+    - name: "BMS Bytes Read"
+      unique_id: "bms_ReadBytes"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.BMSBytesRead }}"
+      unit_of_measurement: bytes
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"
+    - name: "BMS Bytes Written"
+      unique_id: "bms_WriteBytes"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.BMSBytesWritten }}"
+      unit_of_measurement: bytes
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"
+    - name: "Inverter Bytes Read"
+      unique_id: "bms_InverterReadBytes"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.InverterReadBytes }}"
+      unit_of_measurement: bytes
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"
+    - name: "Inverter Bytes Written"
+      unique_id: "bms_InverterWriteBytes"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.InverterWriteBytes }}"
+      unit_of_measurement: bytes
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"
+    - name: "Cell Balance Remaining"
+      unique_id: "bms_CellBalanceRemainingTime"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.cellBalancingRemainingTime }}"
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah" 
+   binary_sensor:
+    - name: "Cell Balance Active"
+      unique_id: "bms_CellBalanceActive"
+      state_topic: "DiscoverStorage"
+      value_template: "{{ value_json.isCellBalancingActive }}"
+      payload_off: false
+      payload_on: true
+      device:
+        identifiers: "bms-to-inverter"
+        manufacturer: "Discover Energy"
+        name: "Battery"
+        model: "LiFePO4 300 Ah"  
+        
+    
