@@ -2,7 +2,7 @@
 
 ![image](https://github.com/user-attachments/assets/34067a81-6ff9-407c-8231-5ed74aa4c1b0)
 
-The Discover Lynx II gateway supports several brands of inverters, but lacks support for the Pylontech protocol which many inverters in the market have compatibility for.  This has forced those of us who own Discover AES batteries to use inverters from manufacturers which Discover Energy Systems has a development relationship with.  Alternatively, we could use an open loop (voltage based) configuration with non-supported inverters, but that has many operational disadvantages.
+The Discover Lynk II gateway supports several brands of inverters, but lacks support for the Pylontech protocol which many inverters in the market have compatibility for.  This has forced those of us who own Discover AES batteries to use inverters from manufacturers which Discover Energy Systems has a development relationship with.  Alternatively, we could use an open loop (voltage based) configuration with non-supported inverters, but that has many operational disadvantages.
 
 This solution allows owners of Discover AES batteries to choose from many available inverters in the market and benefit from a closed-loop integration.  It does this by reading packets from the Discover Lynk II gateway, transforms them, and then transmits to a Pylontech protocol compatible inverter.
 
@@ -37,7 +37,7 @@ Optional:
 
 ## How to Use
 
-Jump over to the [Wiki](https://github.com/ryanpulley/DiscoverAEStoPylontech/wiki) (link at the top of this repository) for detailed instructions on how to use the service.
+Jump over to the [Wiki](https://github.com/ryanpulley/DiscoverAEStoPylontech/wiki) for detailed instructions on how to use the service.
 
 ----------
 
