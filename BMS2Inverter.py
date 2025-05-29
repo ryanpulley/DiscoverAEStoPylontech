@@ -571,10 +571,11 @@ class PylonBatteryChargeFlags ():
       request_force_charge_1 = 32 #bit 5
       request_force_charge_2 = 16 #bit 4
       self.message = struct.pack ('<BB', charge_enable+
-                                  discharge_enable+
-                                  full_charge_enable+
-                                  request_force_charge_1+
-                                  request_force_charge_2, 0)
+                                  discharge_enable, 0)
+
+#                                  full_charge_enable+
+#                                  request_force_charge_1+
+#                                  request_force_charge_2, 0)
       return True
 
 '''
