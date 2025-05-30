@@ -971,22 +971,27 @@ def infoMessage(runEvent,frequency):
 
    while runEvent.is_set():
       logger.info ('')
-      logger.info ('SOC\tVoltage\tAmps\tTemperature')
-      logger.info ('---\t-------\t----\t-----------')
-      logger.info (str(BMSBatteryStatus.batteryStateOfCharge) + "\t" +
-                   str(BMSBatteryMeasurements.batteryVoltage) + "\t" +
-                   str(BMSBatteryMeasurements.batteryCurrent) + "\t" +
-                   str(BMSBatteryMeasurements.batteryTemperature))
+
       if 'InvBatteryStatus' in globals():
          if InvBatteryStatus.IsCellBalancingActive:
+            CellBalanceActiveStatus = 'Active'
             InverterFakeoutSOC = InvBatteryStatus.InverterFakeoutSOC
             CellBalancingRemainingTime = InvBatteryStatus.CellBalancingRemainingTime
-            logger.info ('Cell Balancing Active: Seconds Remaining: ' + 
-                         str(CellBalancingRemainingTime) + "\t" +
-                         'SOC to Inverter: ' +
-                         str(InverterFakeoutSOC))  
          else:
-            logger.info ('Cell balancing inactive')  
+            CellBalanceActiveStatus = 'Inactive'
+            InverterFakeoutSOC = 'N/A'
+            CellBalancingRemainingTime = 'N/A'
+
+      logger.info ('SOC Voltage Amps Temperature Cell Balance CB Remaining SOC->Inverter')
+      logger.info ('--- ------- ---- ----------- ------------ ------------ -------------')
+      logger.info (str(BMSBatteryStatus.batteryStateOfCharge).ljust(3) + ' ' +
+                   str(BMSBatteryMeasurements.batteryVoltage).ljust(7) + ' ' +
+                   str(BMSBatteryMeasurements.batteryCurrent).ljust(4) + ' ' +
+                   str(BMSBatteryMeasurements.batteryTemperature).ljust(11) + ' ' +
+                   str(CellBalanceActiveStatus).ljust(12) + ' ' +
+                   str(CellBalancingRemainingTime).ljust(12) + ' ' +
+                   str(InverterFakeoutSOC))
+
 
       logger.info ('')
       logger.info ('-  Last R/W (ms)   - -              Bytes              -')
