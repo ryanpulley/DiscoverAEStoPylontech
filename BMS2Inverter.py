@@ -1068,10 +1068,17 @@ def MQTTWriter (runEvent, frequency):
          (rc, mid) = MQTTClient.publish("DiscoverStorage", json.dumps(data, indent=2), qos=2)
 
          AGSData = BMSBatteryStatus.batteryStateOfCharge
-         (rc, mid) = MQTTClient.publish("superAGS/SOC", AGSData, qos=2)
+         (rc, mid) = MQTTClient.publish("ags/soc", AGSData, qos=2)
 
          AGSData = BMSBatteryMeasurements.batteryVoltage
-         (rc, mid) = MQTTClient.publish("superAGS/Voltage", AGSData, qos=2)
+         (rc, mid) = MQTTClient.publish("ags/voltage", AGSData, qos=2)
+
+         AGSData = BMSBatteryMeasurements.batteryTemperature
+         (rc, mid) = MQTTClient.publish("ags/temperature", AGSData, qos=2)
+
+         AGSData = "Inverting"
+         (rc, mid) = MQTTClient.publish("ags/status", AGSData, qos=2)
+
 
     
       sleep(frequency)
