@@ -588,6 +588,9 @@ class PylonBatteryAlarms ():
    frame = 0x0359
    message = ""
 
+   def __init__(self):
+      self.inverterOutputProtocol = InverterOutputProtocolParam
+
    def __set_bit(self, byteArrayp, byte_index, bit_index):
        byteT = byteArrayp[byte_index]
        byteT |= 1<<bit_index
@@ -646,8 +649,12 @@ class PylonBatteryAlarms ():
          if Alarm.FAILURE_OTHER in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,3,3)
 
          alarmsByteArray[4] = 1   # module number
-         alarmsByteArray[5] = 0x50
-         alarmsByteArray[6] = 0x4E
+         if self.inverterOutputProtocol = 'UZEnergy':
+            alarmsByteArray[5] = 0x55 #U
+            alarmsByteArray[6] = 0x5A #Z
+         else:
+            alarmsByteArray[5] = 0x50 #P
+            alarmsByteArray[6] = 0x4E #N
 
          self.message=alarmsByteArray
 
@@ -884,7 +891,7 @@ inverterWriter Methods
 --------------------------------------
 '''
 
-def writeInverter (runEvent,CANPort, frequency):
+def writeInverter (runEvent,CANPort, InverterOutputProtocolParam, frequency):
    global InvBatteryStatus
 
    InvBatteryLimits = PylonBatteryLimits ()
@@ -1148,6 +1155,7 @@ def main():
    global BMSReadTimeoutParam
    global InverterCANPortParam
    global InverterCANPortRateParam
+   global InverterOutputProtocolParam
    global LogLevelParam
    global CellBalancingIntervalParam
    global CellBalancingHoldSOCParam
@@ -1207,6 +1215,7 @@ if __name__ == "__main__":
    BMSReadTimeoutParam = config['BMS']['readtimeout']
    InverterCANPortParam = config["inverter"]["port"]
    InverterCANPortRateParam = config["inverter"]["portrate"]
+   InverterOutputProtocolParam = config["inverter"]["outputProtocol"]
    LogLevelParam = config["logging"]["loglevel"]
    LogFileParam = config["logging"]["logfile"]
    CellBalancingIntervalParam = config['cellbalancing']['interval-days']

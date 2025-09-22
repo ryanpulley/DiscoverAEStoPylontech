@@ -6,6 +6,8 @@ BMS:
 inverter:
   port: can1
   portrate: 500000
+  #protocol support - pylontech, UZEnergy
+  outputProtocol: UZEnergy
 cellbalancing:
   interval-days: 2
   hold-soc: 99
