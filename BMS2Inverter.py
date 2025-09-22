@@ -649,7 +649,7 @@ class PylonBatteryAlarms ():
          if Alarm.FAILURE_OTHER in BMSBatteryAlarms.protections: self.__set_bit(alarmsByteArray,3,3)
 
          alarmsByteArray[4] = 1   # module number
-         if self.inverterOutputProtocol = 'UZEnergy':
+         if self.inverterOutputProtocol == "UZEnergy":
             alarmsByteArray[5] = 0x55 #U
             alarmsByteArray[6] = 0x5A #Z
          else:
@@ -891,7 +891,7 @@ inverterWriter Methods
 --------------------------------------
 '''
 
-def writeInverter (runEvent,CANPort, InverterOutputProtocolParam, frequency):
+def writeInverter (runEvent,CANPort,frequency):
    global InvBatteryStatus
 
    InvBatteryLimits = PylonBatteryLimits ()
